@@ -1,0 +1,46 @@
+# Deployment overlay: adds GHCR image refs so `docker compose pull` fetches pre-built images.
+# Usage:
+#   export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml:docker-compose.deploy.yml
+#   docker compose pull
+#   docker compose up -d --no-build
+#
+# Override GHCR_PREFIX / IMAGE_TAG via .env or environment:
+#   GHCR_PREFIX=ghcr.io/<owner>/ondc
+#   IMAGE_TAG=latest
+
+services:
+  vault:
+    image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-vault:${IMAGE_TAG:-latest}
+
+  registry:
+    image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-registry:${IMAGE_TAG:-latest}
+
+  gateway:
+    image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-gateway:${IMAGE_TAG:-latest}
+
+  bap:
+    image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-bap:${IMAGE_TAG:-latest}
+
+  bpp:
+    image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-bpp:${IMAGE_TAG:-latest}
+
+  admin:
+    image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-admin:${IMAGE_TAG:-latest}
+
+  docs:
+    image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-docs:${IMAGE_TAG:-latest}
+
+  orchestrator:
+    image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-orchestrator:${IMAGE_TAG:-latest}
+
+  health-monitor:
+    image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-health-monitor:${IMAGE_TAG:-latest}
+
+  log-aggregator:
+    image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-log-aggregator:${IMAGE_TAG:-latest}
+
+  simulation-engine:
+    image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-simulation-engine:${IMAGE_TAG:-latest}
+
+  mock-server:
+    image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-mock-server:${IMAGE_TAG:-latest}
