@@ -3,7 +3,7 @@
 ## The One-Liner
 
 ```bash
-git clone https://github.com/youruser/ondc-platform.git && cd ondc-platform && sudo bash autoconfig.sh
+git clone https://github.com/divyamohan1993/ondc-network-beckn.git && cd ondc-network-beckn && sudo bash autoconfig.sh
 ```
 
 That's it. Blank Ubuntu VM → fully running, production-grade Beckn network. Destroy the VM when done. Spin up a new one when needed. Or keep it running forever for real users.
@@ -17,8 +17,8 @@ That's it. Blank Ubuntu VM → fully running, production-grade Beckn network. De
 ```bash
 # Spin up a GCloud/AWS VM
 # SSH in
-git clone https://github.com/youruser/ondc-platform.git
-cd ondc-platform
+git clone https://github.com/divyamohan1993/ondc-network-beckn.git
+cd ondc-network-beckn
 sudo bash autoconfig.sh            # Installs everything, starts all services
 sudo bash simulate.sh --baps 5 --bpps 20 --orders 500   # Populate with fake but realistic data
 # ... use it, test against it, demo it ...
@@ -35,8 +35,8 @@ sudo bash simulate.sh --baps 5 --bpps 20 --orders 500   # Populate with fake but
 
 ```bash
 # Spin up a VM, point DNS to it
-git clone https://github.com/youruser/ondc-platform.git
-cd ondc-platform
+git clone https://github.com/divyamohan1993/ondc-network-beckn.git
+cd ondc-network-beckn
 sudo bash autoconfig.sh --production   # Same script, enables persistent volumes + backups + SSL hardening
 # Real participants register through the subscribe API or admin dashboard
 # You govern the network through admin.ondc.dmj.one
@@ -188,7 +188,7 @@ The simulation data is **indistinguishable from real traffic** at the protocol l
 ## Monorepo Structure
 
 ```
-ondc-platform/
+ondc-network-beckn/
 │
 ├── autoconfig.sh                    # Blank VM → running platform (the entry point)
 ├── simulate.sh                      # Populate with N simulated BAPs/BPPs/orders
@@ -863,7 +863,7 @@ Phase 9 ─── docker-compose + nginx + autoconfig.sh + simulate.sh
 # Morning: spin up a VM, clone, configure
 gcloud compute instances create ondc-test --machine-type=e2-medium --image-family=ubuntu-2204-lts
 gcloud compute ssh ondc-test
-git clone https://github.com/youruser/ondc-platform.git && cd ondc-platform
+git clone https://github.com/divyamohan1993/ondc-network-beckn.git && cd ondc-network-beckn
 sudo bash autoconfig.sh --domain test.ondc.dmj.one
 
 # Populate with realistic data
@@ -884,7 +884,7 @@ gcloud compute instances delete ondc-test
 # Deploy once
 gcloud compute instances create ondc-prod --machine-type=e2-standard-2 --image-family=ubuntu-2204-lts
 gcloud compute ssh ondc-prod
-git clone https://github.com/youruser/ondc-platform.git && cd ondc-platform
+git clone https://github.com/divyamohan1993/ondc-network-beckn.git && cd ondc-network-beckn
 sudo bash autoconfig.sh --production --domain ondc.dmj.one
 
 # Real participants register via:
@@ -900,7 +900,7 @@ sudo bash autoconfig.sh --production --domain ondc.dmj.one
 ### Updating
 
 ```bash
-cd ondc-platform
+cd ondc-network-beckn
 git pull
 docker compose build
 docker compose up -d

@@ -434,12 +434,12 @@ export default function HomePage() {
                 <div className="mt-1">
                   <span className="text-green-400">$</span>{' '}
                   <span className="text-gray-100">
-                    git clone https://github.com/youruser/ondc-platform.git
+                    git clone https://github.com/divyamohan1993/ondc-network-beckn.git
                   </span>
                 </div>
                 <div className="mt-1">
                   <span className="text-green-400">$</span>{' '}
-                  <span className="text-gray-100">cd ondc-platform</span>
+                  <span className="text-gray-100">cd ondc-network-beckn</span>
                 </div>
                 <div className="mt-1">
                   <span className="text-green-400">$</span>{' '}

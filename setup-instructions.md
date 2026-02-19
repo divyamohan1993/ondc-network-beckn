@@ -9,7 +9,7 @@ A complete, production-grade private Beckn network that is protocol-identical to
 ```bash
 # Clone and deploy (blank Ubuntu VM)
 git clone https://github.com/divyamohan1993/ondc-network-beckn.git
-cd ondc-platform
+cd ondc-network-beckn
 sudo bash autoconfig.sh
 
 # Populate with realistic test data
@@ -697,4 +697,6 @@ BECKN_SIGNING_PUBLIC_KEY=<govt-registered-key>
 
 ---
 
-## Li
+## License
+
+MIT
