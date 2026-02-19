@@ -2,13 +2,12 @@
 # ──────────────────────────────────────────────────────────────
 # ONDC Network Beckn — Production Deployment Script
 # ──────────────────────────────────────────────────────────────
-# Called by the GitHub Actions deploy job via SSH, or manually:
-#   ./scripts/deploy.sh [--tag <image-tag>]
+# Automatic updates are handled by Watchtower (see docker-compose.deploy.yml).
+# Use this script for manual/immediate deploys:
+#   cd /opt/ondc && bash scripts/deploy.sh [--tag <image-tag>]
 #
-# Prerequisites on the deploy server:
-#   - Docker Engine 24+ with Compose plugin
-#   - GHCR login: docker login ghcr.io -u <user> --password-stdin
-#   - .env file at $DEPLOY_DIR with all required secrets
+# Prerequisites:
+#   - Server set up via: sudo bash scripts/setup-server.sh
 # ──────────────────────────────────────────────────────────────
 set -euo pipefail
 

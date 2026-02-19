@@ -147,24 +147,12 @@ jobs:
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
-  deploy:
-    name: Deploy to production
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
-    environment: production
-
-    steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ vars.DEPLOY_PORT || 22 }}
-          script_stop: true
-          script: |
-            export DEPLOY_DIR="${{ vars.DEPLOY_PATH || '/opt/ondc' }}"
-            export IMAGE_TAG="${{ github.sha }}"
-            cd "$DEPLOY_DIR"
-            bash scripts/deploy.sh --tag "$IMAGE_TAG"
+  # Deployment is handled automatically by Watchtower running on the server.
+  # Watchtower polls GHCR every 5 minutes and restarts containers when new
+  # :latest images are pushed. No SSH keys or server secrets needed.
+  #
+  # For manual/immediate deploy, SSH into the server and run:
+  #   cd /opt/ondc && bash scripts/deploy.sh
+  #
+  # To set up a new server:
+  #   sudo bash scripts/setup-server.sh

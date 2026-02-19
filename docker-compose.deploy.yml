@@ -1,46 +1,105 @@
-# Deployment overlay: adds GHCR image refs so `docker compose pull` fetches pre-built images.
-# Usage:
-#   export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml:docker-compose.deploy.yml
-#   docker compose pull
-#   docker compose up -d --no-build
+# ──────────────────────────────────────────────────────────────
+# Deployment overlay — pull pre-built GHCR images + auto-update
+# ──────────────────────────────────────────────────────────────
+# Usage (one-time setup on any server):
+#   1. Clone repo:  git clone https://github.com/divyamohan1993/ondc-network-beckn.git /opt/ondc
+#   2. Run setup:   sudo bash /opt/ondc/scripts/setup-server.sh
+#   3. That's it — Watchtower handles all future updates automatically.
 #
-# Override GHCR_PREFIX / IMAGE_TAG via .env or environment:
-#   GHCR_PREFIX=ghcr.io/<owner>/ondc
-#   IMAGE_TAG=latest
+# How it works:
+#   - All 12 services pull pre-built images from GHCR instead of building locally
+#   - Watchtower polls GHCR every 5 minutes for new :latest images
+#   - When a new image is found, Watchtower pulls it and restarts the container
+#   - Zero-downtime: containers are restarted one at a time
+#
+# Manual operations:
+#   cd /opt/ondc
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml logs -f
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml ps
+#
+# Shortcut (set in .env or shell):
+#   export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml:docker-compose.deploy.yml
 
 services:
+  # ── Auto-updater ──
+  watchtower:
+    image: containrrr/watchtower:latest
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DOCKER_CONFIG_DIR:-~/.docker}:/config.json:ro
+    environment:
+      WATCHTOWER_POLL_INTERVAL: ${WATCHTOWER_POLL_INTERVAL:-300}
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_INCLUDE_STOPPED: "false"
+      WATCHTOWER_ROLLING_RESTART: "true"
+      WATCHTOWER_SCOPE: ondc
+      DOCKER_CONFIG: /config.json
+      WATCHTOWER_NOTIFICATIONS: shoutrrr
+      WATCHTOWER_NOTIFICATION_URL: ${WATCHTOWER_NOTIFICATION_URL:-}
+      WATCHTOWER_LIFECYCLE_HOOKS: "true"
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
+    restart: always
+    networks:
+      - ondc-network
+
+  # ── Service images from GHCR ──
   vault:
     image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-vault:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
 
   registry:
     image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-registry:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
 
   gateway:
     image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-gateway:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
 
   bap:
     image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-bap:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
 
   bpp:
     image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-bpp:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
 
   admin:
     image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-admin:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
 
   docs:
     image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-docs:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
 
   orchestrator:
     image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-orchestrator:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
 
   health-monitor:
     image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-health-monitor:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
 
   log-aggregator:
     image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-log-aggregator:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
 
   simulation-engine:
     image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-simulation-engine:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
 
   mock-server:
     image: ${GHCR_PREFIX:-ghcr.io/divyamohan1993/ondc}-mock-server:${IMAGE_TAG:-latest}
+    labels:
+      com.centurylinklabs.watchtower.scope: ondc
