@@ -1,0 +1,75 @@
+worker_processes auto;
+events { worker_connections 1024; }
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    sendfile on;
+    keepalive_timeout 65;
+    client_max_body_size 10m;
+
+    # Logging
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent"';
+    access_log /var/log/nginx/access.log main;
+    error_log /var/log/nginx/error.log;
+
+    # Upstream servers
+    upstream registry { server registry:3001; }
+    upstream gateway { server gateway:3002; }
+    upstream admin { server admin:3003; }
+    upstream bap { server bap:3004; }
+    upstream bpp { server bpp:3005; }
+    upstream docs { server docs:3000; }
+    upstream mock-server { server mock-server:3010; }
+
+    # Docs/Landing — {{DOMAIN}}
+    server {
+        listen 80;
+        server_name {{DOMAIN}};
+        location / { proxy_pass http://docs; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
+    }
+
+    # Registry — registry.{{DOMAIN}}
+    server {
+        listen 80;
+        server_name registry.{{DOMAIN}};
+        location / { proxy_pass http://registry; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
+    }
+
+    # Gateway — gateway.{{DOMAIN}}
+    server {
+        listen 80;
+        server_name gateway.{{DOMAIN}};
+        location / { proxy_pass http://gateway; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
+    }
+
+    # Admin — admin.{{DOMAIN}}
+    server {
+        listen 80;
+        server_name admin.{{DOMAIN}};
+        location / { proxy_pass http://admin; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
+    }
+
+    # BAP — bap.{{DOMAIN}}
+    server {
+        listen 80;
+        server_name bap.{{DOMAIN}};
+        location / { proxy_pass http://bap; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
+    }
+
+    # BPP — bpp.{{DOMAIN}}
+    server {
+        listen 80;
+        server_name bpp.{{DOMAIN}};
+        location / { proxy_pass http://bpp; proxy_set_header Host $host; proxy_set_header X-Real-IP $remote_addr; proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; proxy_set_header X-Forwarded-Proto $scheme; }
+    }
+
+    # Default — catch-all
+    server {
+        listen 80 default_server;
+        server_name _;
+        location / { return 301 http://{{DOMAIN}}$request_uri; }
+    }
+}

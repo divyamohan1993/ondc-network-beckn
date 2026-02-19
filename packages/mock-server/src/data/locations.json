@@ -1,0 +1,78 @@
+{
+  "std:011": {
+    "city": "Delhi",
+    "state": "Delhi",
+    "locations": [
+      { "gps": "28.6139,77.2090", "address": "Connaught Place, New Delhi", "area_code": "110001" },
+      { "gps": "28.5355,77.2100", "address": "Saket, New Delhi", "area_code": "110017" },
+      { "gps": "28.6692,77.4538", "address": "Noida Sector 18, UP", "area_code": "201301" },
+      { "gps": "28.6304,77.2177", "address": "Karol Bagh, New Delhi", "area_code": "110005" },
+      { "gps": "28.5672,77.3211", "address": "Lajpat Nagar, New Delhi", "area_code": "110024" }
+    ]
+  },
+  "std:080": {
+    "city": "Bangalore",
+    "state": "Karnataka",
+    "locations": [
+      { "gps": "12.9716,77.5946", "address": "MG Road, Bangalore", "area_code": "560001" },
+      { "gps": "12.9352,77.6245", "address": "Koramangala, Bangalore", "area_code": "560034" },
+      { "gps": "12.9698,77.7500", "address": "Whitefield, Bangalore", "area_code": "560066" },
+      { "gps": "13.0358,77.5970", "address": "Hebbal, Bangalore", "area_code": "560024" }
+    ]
+  },
+  "std:022": {
+    "city": "Mumbai",
+    "state": "Maharashtra",
+    "locations": [
+      { "gps": "19.0760,72.8777", "address": "Andheri West, Mumbai", "area_code": "400058" },
+      { "gps": "18.9220,72.8347", "address": "Colaba, Mumbai", "area_code": "400005" },
+      { "gps": "19.1136,72.8697", "address": "Goregaon East, Mumbai", "area_code": "400063" },
+      { "gps": "19.0596,72.8295", "address": "Bandra West, Mumbai", "area_code": "400050" }
+    ]
+  },
+  "std:044": {
+    "city": "Chennai",
+    "state": "Tamil Nadu",
+    "locations": [
+      { "gps": "13.0827,80.2707", "address": "T Nagar, Chennai", "area_code": "600017" },
+      { "gps": "12.9165,80.1270", "address": "OMR Sholinganallur, Chennai", "area_code": "600119" },
+      { "gps": "13.0604,80.2496", "address": "Anna Nagar, Chennai", "area_code": "600040" }
+    ]
+  },
+  "std:033": {
+    "city": "Kolkata",
+    "state": "West Bengal",
+    "locations": [
+      { "gps": "22.5726,88.3639", "address": "Park Street, Kolkata", "area_code": "700016" },
+      { "gps": "22.5181,88.3634", "address": "Gariahat, Kolkata", "area_code": "700019" },
+      { "gps": "22.5958,88.3700", "address": "Salt Lake City, Kolkata", "area_code": "700091" }
+    ]
+  },
+  "std:040": {
+    "city": "Hyderabad",
+    "state": "Telangana",
+    "locations": [
+      { "gps": "17.3850,78.4867", "address": "Banjara Hills, Hyderabad", "area_code": "500034" },
+      { "gps": "17.4400,78.3489", "address": "HITEC City, Hyderabad", "area_code": "500081" },
+      { "gps": "17.3660,78.4760", "address": "Madhapur, Hyderabad", "area_code": "500081" }
+    ]
+  },
+  "std:020": {
+    "city": "Pune",
+    "state": "Maharashtra",
+    "locations": [
+      { "gps": "18.5204,73.8567", "address": "Shivaji Nagar, Pune", "area_code": "411005" },
+      { "gps": "18.5624,73.9166", "address": "Viman Nagar, Pune", "area_code": "411014" },
+      { "gps": "18.5074,73.8077", "address": "Kothrud, Pune", "area_code": "411038" }
+    ]
+  },
+  "std:079": {
+    "city": "Ahmedabad",
+    "state": "Gujarat",
+    "locations": [
+      { "gps": "23.0225,72.5714", "address": "CG Road, Ahmedabad", "area_code": "380006" },
+      { "gps": "23.0469,72.5300", "address": "SG Highway, Ahmedabad", "area_code": "380054" },
+      { "gps": "23.0733,72.6267", "address": "Maninagar, Ahmedabad", "area_code": "380008" }
+    ]
+  }
+}

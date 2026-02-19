@@ -1,0 +1,261 @@
+{
+  "domain": "ONDC:NIC2004:49299",
+  "items": [
+    {
+      "id": "water-001",
+      "descriptor": { "name": "20L Bisleri Can", "short_desc": "Premium packaged drinking water" },
+      "price": { "currency": "INR", "value": "80" },
+      "category_id": "packaged-water",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "packaged" }] }]
+    },
+    {
+      "id": "water-002",
+      "descriptor": { "name": "500L Water Tanker", "short_desc": "Bulk water tanker delivery for residential" },
+      "price": { "currency": "INR", "value": "1200" },
+      "category_id": "tanker",
+      "fulfillment_id": "delivery-tanker",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "tanker" }] }]
+    },
+    {
+      "id": "water-003",
+      "descriptor": { "name": "RO Purified Water 20L", "short_desc": "RO filtered drinking water" },
+      "price": { "currency": "INR", "value": "40" },
+      "category_id": "purified-water",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "purified" }] }]
+    },
+    {
+      "id": "water-004",
+      "descriptor": { "name": "1L Mineral Water Bottle", "short_desc": "Single serve mineral water" },
+      "price": { "currency": "INR", "value": "20" },
+      "category_id": "packaged-water",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "mineral" }] }]
+    },
+    {
+      "id": "water-005",
+      "descriptor": { "name": "5L Water Jar", "short_desc": "Medium jar for small offices" },
+      "price": { "currency": "INR", "value": "50" },
+      "category_id": "packaged-water",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "packaged" }] }]
+    },
+    {
+      "id": "water-006",
+      "descriptor": { "name": "1000L Water Tanker", "short_desc": "Medium tanker for apartments and small complexes" },
+      "price": { "currency": "INR", "value": "2200" },
+      "category_id": "tanker",
+      "fulfillment_id": "delivery-tanker",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "tanker" }] }]
+    },
+    {
+      "id": "water-007",
+      "descriptor": { "name": "2000L Water Tanker", "short_desc": "Large tanker for societies and offices" },
+      "price": { "currency": "INR", "value": "4000" },
+      "category_id": "tanker",
+      "fulfillment_id": "delivery-tanker",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "tanker" }] }]
+    },
+    {
+      "id": "water-008",
+      "descriptor": { "name": "5000L Water Tanker", "short_desc": "Industrial grade bulk tanker delivery" },
+      "price": { "currency": "INR", "value": "8500" },
+      "category_id": "tanker",
+      "fulfillment_id": "delivery-tanker",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "tanker" }] }]
+    },
+    {
+      "id": "water-009",
+      "descriptor": { "name": "10L Water Can", "short_desc": "Compact packaged water can for homes" },
+      "price": { "currency": "INR", "value": "45" },
+      "category_id": "packaged-water",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "packaged" }] }]
+    },
+    {
+      "id": "water-010",
+      "descriptor": { "name": "15L Water Can", "short_desc": "Mid-size packaged water can" },
+      "price": { "currency": "INR", "value": "60" },
+      "category_id": "packaged-water",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "packaged" }] }]
+    },
+    {
+      "id": "water-011",
+      "descriptor": { "name": "25L Premium Water Can", "short_desc": "Large premium packaged water for offices" },
+      "price": { "currency": "INR", "value": "110" },
+      "category_id": "packaged-water",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "packaged" }] }]
+    },
+    {
+      "id": "water-012",
+      "descriptor": { "name": "RO Purified Water 10L", "short_desc": "RO purified drinking water medium jar" },
+      "price": { "currency": "INR", "value": "25" },
+      "category_id": "purified-water",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "purified" }] }]
+    },
+    {
+      "id": "water-013",
+      "descriptor": { "name": "RO + UV Purified Water 20L", "short_desc": "Double purified RO and UV treated water" },
+      "price": { "currency": "INR", "value": "55" },
+      "category_id": "purified-water",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "purified" }] }]
+    },
+    {
+      "id": "water-014",
+      "descriptor": { "name": "500ml Mineral Water (Pack of 24)", "short_desc": "Bulk pack of 24 mineral water bottles" },
+      "price": { "currency": "INR", "value": "240" },
+      "category_id": "packaged-water",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "mineral" }] }]
+    },
+    {
+      "id": "water-015",
+      "descriptor": { "name": "2L Mineral Water Bottle", "short_desc": "Family size mineral water bottle" },
+      "price": { "currency": "INR", "value": "35" },
+      "category_id": "packaged-water",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "mineral" }] }]
+    },
+    {
+      "id": "water-016",
+      "descriptor": { "name": "Lemon Flavored Water 500ml", "short_desc": "Refreshing lemon infused sparkling water" },
+      "price": { "currency": "INR", "value": "30" },
+      "category_id": "flavored-water",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "flavored" }] }]
+    },
+    {
+      "id": "water-017",
+      "descriptor": { "name": "Mint Flavored Water 500ml", "short_desc": "Cool mint infused drinking water" },
+      "price": { "currency": "INR", "value": "30" },
+      "category_id": "flavored-water",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "flavored" }] }]
+    },
+    {
+      "id": "water-018",
+      "descriptor": { "name": "Orange Flavored Water 500ml", "short_desc": "Natural orange flavor enhanced water" },
+      "price": { "currency": "INR", "value": "35" },
+      "category_id": "flavored-water",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "flavored" }] }]
+    },
+    {
+      "id": "water-019",
+      "descriptor": { "name": "Water Cooler Rental (Monthly)", "short_desc": "Hot and cold water dispenser rental per month" },
+      "price": { "currency": "INR", "value": "500" },
+      "category_id": "water-equipment",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "rental" }] }]
+    },
+    {
+      "id": "water-020",
+      "descriptor": { "name": "Water Dispenser Stand", "short_desc": "Stainless steel water dispenser stand for 20L cans" },
+      "price": { "currency": "INR", "value": "850" },
+      "category_id": "water-equipment",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "equipment" }] }]
+    },
+    {
+      "id": "water-021",
+      "descriptor": { "name": "Water Quality Testing Kit", "short_desc": "Home water testing kit for TDS, pH, bacteria" },
+      "price": { "currency": "INR", "value": "350" },
+      "category_id": "water-testing",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "testing" }] }]
+    },
+    {
+      "id": "water-022",
+      "descriptor": { "name": "Professional Water Testing Service", "short_desc": "Lab-grade water quality analysis with report" },
+      "price": { "currency": "INR", "value": "1500" },
+      "category_id": "water-testing",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "testing" }] }]
+    },
+    {
+      "id": "water-023",
+      "descriptor": { "name": "Weekly Water Subscription (4x 20L)", "short_desc": "Weekly delivery of four 20L water cans" },
+      "price": { "currency": "INR", "value": "280" },
+      "category_id": "subscription",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "subscription" }] }]
+    },
+    {
+      "id": "water-024",
+      "descriptor": { "name": "Monthly Water Subscription (16x 20L)", "short_desc": "Monthly subscription for daily 20L can delivery" },
+      "price": { "currency": "INR", "value": "1000" },
+      "category_id": "subscription",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "subscription" }] }]
+    },
+    {
+      "id": "water-025",
+      "descriptor": { "name": "Office Water Subscription (20x 20L/month)", "short_desc": "Office plan with 20 cans per month" },
+      "price": { "currency": "INR", "value": "1400" },
+      "category_id": "subscription",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "subscription" }] }]
+    },
+    {
+      "id": "water-026",
+      "descriptor": { "name": "Emergency Water Supply (10x 20L)", "short_desc": "Urgent same-day delivery of 10 water cans" },
+      "price": { "currency": "INR", "value": "1000" },
+      "category_id": "emergency",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "emergency" }] }]
+    },
+    {
+      "id": "water-027",
+      "descriptor": { "name": "Emergency Tanker 1000L (2hr delivery)", "short_desc": "Urgent tanker delivery within 2 hours" },
+      "price": { "currency": "INR", "value": "3500" },
+      "category_id": "emergency",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "emergency" }] }]
+    },
+    {
+      "id": "water-028",
+      "descriptor": { "name": "Alkaline Water 1L", "short_desc": "pH 8.5+ alkaline drinking water" },
+      "price": { "currency": "INR", "value": "45" },
+      "category_id": "specialty-water",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "specialty" }] }]
+    },
+    {
+      "id": "water-029",
+      "descriptor": { "name": "Copper Infused Water 1L", "short_desc": "Traditional copper vessel treated water" },
+      "price": { "currency": "INR", "value": "60" },
+      "category_id": "specialty-water",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "specialty" }] }]
+    },
+    {
+      "id": "water-030",
+      "descriptor": { "name": "Sparkling Water 750ml", "short_desc": "Carbonated natural mineral water" },
+      "price": { "currency": "INR", "value": "55" },
+      "category_id": "specialty-water",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "specialty" }] }]
+    },
+    {
+      "id": "water-031",
+      "descriptor": { "name": "3000L Tanker (Commercial)", "short_desc": "Commercial grade bulk water for construction sites" },
+      "price": { "currency": "INR", "value": "5500" },
+      "category_id": "tanker",
+      "fulfillment_id": "delivery-tanker",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "tanker" }] }]
+    },
+    {
+      "id": "water-032",
+      "descriptor": { "name": "10000L Industrial Tanker", "short_desc": "Heavy-duty industrial water tanker delivery" },
+      "price": { "currency": "INR", "value": "15000" },
+      "category_id": "tanker",
+      "fulfillment_id": "delivery-tanker",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "tanker" }] }]
+    }
+  ]
+}

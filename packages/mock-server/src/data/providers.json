@@ -1,0 +1,59 @@
+{
+  "water": [
+    "AquaPure Delhi",
+    "BlueWater Tankers",
+    "JalMitra Services",
+    "CrystalDrop Water",
+    "HydroFresh Supply",
+    "PureFlow Water Co",
+    "Aqua Express",
+    "JalSeva Plus",
+    "ClearWater Solutions",
+    "Paani Junction"
+  ],
+  "food": [
+    "Spice Kitchen",
+    "Tandoori Nights",
+    "Green Bowl Cafe",
+    "Biryani House",
+    "Dosa Corner",
+    "Mumbai Tiffins",
+    "Punjab Dhaba",
+    "Royal Feast",
+    "Street Bites Express",
+    "Curry Leaf Kitchen"
+  ],
+  "agriculture": [
+    "KisanMandi",
+    "AgriGold Seeds",
+    "FarmFresh Direct",
+    "GreenHarvest",
+    "KhetiBari Store",
+    "Seed Master India",
+    "AgriTech Solutions",
+    "Krishi Kendra",
+    "Fasal Bazaar"
+  ],
+  "logistics": [
+    "SpeedShip Couriers",
+    "TransIndia Logistics",
+    "QuickMove Express",
+    "SafeDeliver",
+    "CargoExpress India",
+    "FleetMaster",
+    "Delhivery Plus",
+    "BlueDart Local"
+  ],
+  "bap": [
+    "BuyerApp OneStop",
+    "ShopEasy Platform",
+    "OrderKaro App",
+    "BazaarNow",
+    "DailyNeeds Hub",
+    "QuickBuy India",
+    "MeraBazaar App",
+    "KhareediKaro",
+    "SwiftOrder Platform",
+    "NearbyShop App"
+  ]
+}

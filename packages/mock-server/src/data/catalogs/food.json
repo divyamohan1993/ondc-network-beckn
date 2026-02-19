@@ -1,0 +1,285 @@
+{
+  "domain": "ONDC:RET10",
+  "items": [
+    {
+      "id": "food-001",
+      "descriptor": { "name": "Chicken Biryani", "short_desc": "Aromatic basmati rice cooked with tender chicken pieces and spices" },
+      "price": { "currency": "INR", "value": "250" },
+      "category_id": "biryani",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "no" }] }]
+    },
+    {
+      "id": "food-002",
+      "descriptor": { "name": "Mutton Biryani", "short_desc": "Slow cooked Hyderabadi style mutton dum biryani" },
+      "price": { "currency": "INR", "value": "350" },
+      "category_id": "biryani",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "no" }] }]
+    },
+    {
+      "id": "food-003",
+      "descriptor": { "name": "Veg Biryani", "short_desc": "Mixed vegetable biryani with paneer and cashews" },
+      "price": { "currency": "INR", "value": "180" },
+      "category_id": "biryani",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-004",
+      "descriptor": { "name": "Egg Biryani", "short_desc": "Fragrant biryani with boiled eggs and mint" },
+      "price": { "currency": "INR", "value": "200" },
+      "category_id": "biryani",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "no" }] }]
+    },
+    {
+      "id": "food-005",
+      "descriptor": { "name": "Masala Dosa", "short_desc": "Crispy rice crepe with spiced potato filling" },
+      "price": { "currency": "INR", "value": "120" },
+      "category_id": "south-indian",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-006",
+      "descriptor": { "name": "Idli Vada Combo (4+2)", "short_desc": "Steamed rice cakes with crispy medu vada and sambar" },
+      "price": { "currency": "INR", "value": "80" },
+      "category_id": "south-indian",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-007",
+      "descriptor": { "name": "Onion Uttapam", "short_desc": "Thick rice pancake topped with onions and green chillies" },
+      "price": { "currency": "INR", "value": "100" },
+      "category_id": "south-indian",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-008",
+      "descriptor": { "name": "Rava Dosa", "short_desc": "Crispy semolina dosa with onions and cashews" },
+      "price": { "currency": "INR", "value": "110" },
+      "category_id": "south-indian",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-009",
+      "descriptor": { "name": "Butter Chicken", "short_desc": "Tender chicken in rich tomato-butter gravy" },
+      "price": { "currency": "INR", "value": "280" },
+      "category_id": "north-indian",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "no" }] }]
+    },
+    {
+      "id": "food-010",
+      "descriptor": { "name": "Dal Makhani", "short_desc": "Slow-cooked black lentils in creamy butter sauce" },
+      "price": { "currency": "INR", "value": "180" },
+      "category_id": "north-indian",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-011",
+      "descriptor": { "name": "Butter Naan (2 pcs)", "short_desc": "Soft tandoor-baked bread brushed with butter" },
+      "price": { "currency": "INR", "value": "40" },
+      "category_id": "north-indian",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-012",
+      "descriptor": { "name": "Paneer Tikka Masala", "short_desc": "Grilled cottage cheese in spiced onion-tomato gravy" },
+      "price": { "currency": "INR", "value": "220" },
+      "category_id": "north-indian",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-013",
+      "descriptor": { "name": "Kadhai Chicken", "short_desc": "Spicy wok-style chicken with capsicum and tomatoes" },
+      "price": { "currency": "INR", "value": "260" },
+      "category_id": "north-indian",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "no" }] }]
+    },
+    {
+      "id": "food-014",
+      "descriptor": { "name": "Pani Puri (6 pcs)", "short_desc": "Crispy puris with tangy mint water and chutney" },
+      "price": { "currency": "INR", "value": "60" },
+      "category_id": "street-food",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-015",
+      "descriptor": { "name": "Vada Pav", "short_desc": "Mumbai-style spicy potato fritter in bread bun" },
+      "price": { "currency": "INR", "value": "30" },
+      "category_id": "street-food",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-016",
+      "descriptor": { "name": "Chole Bhature", "short_desc": "Spiced chickpea curry with deep-fried bread" },
+      "price": { "currency": "INR", "value": "100" },
+      "category_id": "street-food",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-017",
+      "descriptor": { "name": "Aloo Tikki Chaat", "short_desc": "Crispy potato patties with yogurt and chutneys" },
+      "price": { "currency": "INR", "value": "70" },
+      "category_id": "street-food",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-018",
+      "descriptor": { "name": "Samosa (2 pcs)", "short_desc": "Deep-fried pastry with spiced potato filling" },
+      "price": { "currency": "INR", "value": "40" },
+      "category_id": "street-food",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-019",
+      "descriptor": { "name": "Veg Manchurian", "short_desc": "Indo-Chinese style deep-fried veggie balls in spicy sauce" },
+      "price": { "currency": "INR", "value": "160" },
+      "category_id": "chinese",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-020",
+      "descriptor": { "name": "Chicken Fried Rice", "short_desc": "Wok-tossed rice with chicken, vegetables and soy sauce" },
+      "price": { "currency": "INR", "value": "140" },
+      "category_id": "chinese",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "no" }] }]
+    },
+    {
+      "id": "food-021",
+      "descriptor": { "name": "Veg Momos (8 pcs)", "short_desc": "Steamed dumplings with cabbage and vegetable filling" },
+      "price": { "currency": "INR", "value": "120" },
+      "category_id": "chinese",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-022",
+      "descriptor": { "name": "Chicken Momos (8 pcs)", "short_desc": "Steamed dumplings with minced chicken filling" },
+      "price": { "currency": "INR", "value": "150" },
+      "category_id": "chinese",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "no" }] }]
+    },
+    {
+      "id": "food-023",
+      "descriptor": { "name": "Hakka Noodles", "short_desc": "Stir-fried noodles with vegetables and Indo-Chinese spices" },
+      "price": { "currency": "INR", "value": "130" },
+      "category_id": "chinese",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-024",
+      "descriptor": { "name": "Gulab Jamun (4 pcs)", "short_desc": "Soft milk dumplings soaked in rose-cardamom syrup" },
+      "price": { "currency": "INR", "value": "80" },
+      "category_id": "desserts",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-025",
+      "descriptor": { "name": "Rasgulla (4 pcs)", "short_desc": "Spongy cottage cheese balls in light sugar syrup" },
+      "price": { "currency": "INR", "value": "90" },
+      "category_id": "desserts",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-026",
+      "descriptor": { "name": "Chocolate Ice Cream 500ml", "short_desc": "Rich Belgian chocolate ice cream tub" },
+      "price": { "currency": "INR", "value": "60" },
+      "category_id": "desserts",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-027",
+      "descriptor": { "name": "Gajar Ka Halwa", "short_desc": "Traditional carrot pudding with nuts and khoya" },
+      "price": { "currency": "INR", "value": "100" },
+      "category_id": "desserts",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-028",
+      "descriptor": { "name": "Mango Lassi", "short_desc": "Thick yogurt smoothie with Alphonso mango pulp" },
+      "price": { "currency": "INR", "value": "50" },
+      "category_id": "beverages",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-029",
+      "descriptor": { "name": "Masala Chai (300ml)", "short_desc": "Indian spiced tea with ginger and cardamom" },
+      "price": { "currency": "INR", "value": "20" },
+      "category_id": "beverages",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-030",
+      "descriptor": { "name": "Fresh Orange Juice (300ml)", "short_desc": "Freshly squeezed orange juice, no preservatives" },
+      "price": { "currency": "INR", "value": "80" },
+      "category_id": "beverages",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-031",
+      "descriptor": { "name": "Cold Coffee", "short_desc": "Chilled coffee blended with milk and ice cream" },
+      "price": { "currency": "INR", "value": "70" },
+      "category_id": "beverages",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-032",
+      "descriptor": { "name": "Tandoori Chicken (Half)", "short_desc": "Marinated chicken grilled in clay tandoor oven" },
+      "price": { "currency": "INR", "value": "300" },
+      "category_id": "north-indian",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "no" }] }]
+    },
+    {
+      "id": "food-033",
+      "descriptor": { "name": "Rajma Chawal", "short_desc": "Red kidney bean curry served with steamed rice" },
+      "price": { "currency": "INR", "value": "130" },
+      "category_id": "north-indian",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    },
+    {
+      "id": "food-034",
+      "descriptor": { "name": "Fish Curry with Rice", "short_desc": "Bengali-style fish curry with steamed rice" },
+      "price": { "currency": "INR", "value": "200" },
+      "category_id": "north-indian",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "no" }] }]
+    },
+    {
+      "id": "food-035",
+      "descriptor": { "name": "Pav Bhaji", "short_desc": "Spiced mashed vegetable curry with buttered bread rolls" },
+      "price": { "currency": "INR", "value": "90" },
+      "category_id": "street-food",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "veg", "list": [{ "code": "veg", "value": "yes" }] }]
+    }
+  ]
+}

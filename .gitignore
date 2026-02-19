@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+.next/
+*.tsbuildinfo
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+.credentials
+*.pem
+*.key
+
+# Turborepo
+.turbo/
+
+# Testing
+coverage/
+
+# Logs
+*.log
+logs/
+
+# Backups
+backups/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Docker volumes (local)
+pgdata/
+redisdata/
+rabbitmqdata/

@@ -1,0 +1,221 @@
+{
+  "domain": "ONDC:AGR10",
+  "items": [
+    {
+      "id": "agri-001",
+      "descriptor": { "name": "Basmati Rice Seeds 25kg", "short_desc": "Premium Pusa Basmati 1121 paddy seeds" },
+      "price": { "currency": "INR", "value": "1800" },
+      "category_id": "seeds",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "seeds" }] }]
+    },
+    {
+      "id": "agri-002",
+      "descriptor": { "name": "Wheat Seeds (HD-2967) 50kg", "short_desc": "High-yield bread wheat variety seeds" },
+      "price": { "currency": "INR", "value": "1200" },
+      "category_id": "seeds",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "seeds" }] }]
+    },
+    {
+      "id": "agri-003",
+      "descriptor": { "name": "Cotton Seeds (BT) 5kg", "short_desc": "BT hybrid cotton seeds for Kharif season" },
+      "price": { "currency": "INR", "value": "800" },
+      "category_id": "seeds",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "seeds" }] }]
+    },
+    {
+      "id": "agri-004",
+      "descriptor": { "name": "Hybrid Tomato Seeds 100g", "short_desc": "Disease-resistant hybrid tomato seeds" },
+      "price": { "currency": "INR", "value": "450" },
+      "category_id": "seeds",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "seeds" }] }]
+    },
+    {
+      "id": "agri-005",
+      "descriptor": { "name": "Mustard Seeds (Pusa Bold) 10kg", "short_desc": "High oil content mustard variety" },
+      "price": { "currency": "INR", "value": "650" },
+      "category_id": "seeds",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "seeds" }] }]
+    },
+    {
+      "id": "agri-006",
+      "descriptor": { "name": "Urea Fertilizer 50kg", "short_desc": "Nitrogen-rich urea 46% for crop growth" },
+      "price": { "currency": "INR", "value": "600" },
+      "category_id": "fertilizers",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "fertilizer" }] }]
+    },
+    {
+      "id": "agri-007",
+      "descriptor": { "name": "DAP Fertilizer 50kg", "short_desc": "Di-ammonium phosphate for soil enrichment" },
+      "price": { "currency": "INR", "value": "1400" },
+      "category_id": "fertilizers",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "fertilizer" }] }]
+    },
+    {
+      "id": "agri-008",
+      "descriptor": { "name": "Organic Vermicompost 25kg", "short_desc": "100% organic earthworm compost manure" },
+      "price": { "currency": "INR", "value": "400" },
+      "category_id": "fertilizers",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "organic" }] }]
+    },
+    {
+      "id": "agri-009",
+      "descriptor": { "name": "NPK 20-20-20 Fertilizer 25kg", "short_desc": "Balanced NPK complex fertilizer" },
+      "price": { "currency": "INR", "value": "900" },
+      "category_id": "fertilizers",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "fertilizer" }] }]
+    },
+    {
+      "id": "agri-010",
+      "descriptor": { "name": "Potash (MOP) 50kg", "short_desc": "Muriate of potash for flowering and fruiting" },
+      "price": { "currency": "INR", "value": "1100" },
+      "category_id": "fertilizers",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "fertilizer" }] }]
+    },
+    {
+      "id": "agri-011",
+      "descriptor": { "name": "Neem Oil Pesticide 1L", "short_desc": "Organic neem-based pest repellent" },
+      "price": { "currency": "INR", "value": "250" },
+      "category_id": "pesticides",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "pesticide" }] }]
+    },
+    {
+      "id": "agri-012",
+      "descriptor": { "name": "Fungicide (Mancozeb) 500g", "short_desc": "Broad-spectrum contact fungicide" },
+      "price": { "currency": "INR", "value": "350" },
+      "category_id": "pesticides",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "pesticide" }] }]
+    },
+    {
+      "id": "agri-013",
+      "descriptor": { "name": "Insecticide (Imidacloprid) 250ml", "short_desc": "Systemic insecticide for sucking pests" },
+      "price": { "currency": "INR", "value": "280" },
+      "category_id": "pesticides",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "pesticide" }] }]
+    },
+    {
+      "id": "agri-014",
+      "descriptor": { "name": "Herbicide (Glyphosate) 1L", "short_desc": "Non-selective systemic herbicide for weed control" },
+      "price": { "currency": "INR", "value": "320" },
+      "category_id": "pesticides",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "pesticide" }] }]
+    },
+    {
+      "id": "agri-015",
+      "descriptor": { "name": "Manual Hand Sprayer 16L", "short_desc": "Backpack-style pressure sprayer for pesticide application" },
+      "price": { "currency": "INR", "value": "800" },
+      "category_id": "equipment",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "equipment" }] }]
+    },
+    {
+      "id": "agri-016",
+      "descriptor": { "name": "Drip Irrigation Kit (1/4 acre)", "short_desc": "Complete drip system with laterals, emitters and filter" },
+      "price": { "currency": "INR", "value": "3500" },
+      "category_id": "equipment",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "equipment" }] }]
+    },
+    {
+      "id": "agri-017",
+      "descriptor": { "name": "Battery Operated Sprayer 20L", "short_desc": "Rechargeable electric sprayer with double motor" },
+      "price": { "currency": "INR", "value": "2800" },
+      "category_id": "equipment",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "equipment" }] }]
+    },
+    {
+      "id": "agri-018",
+      "descriptor": { "name": "Garden Tool Set (5 pcs)", "short_desc": "Trowel, cultivator, weeder, fork and pruner set" },
+      "price": { "currency": "INR", "value": "550" },
+      "category_id": "equipment",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "equipment" }] }]
+    },
+    {
+      "id": "agri-019",
+      "descriptor": { "name": "Fresh Tomatoes 10kg", "short_desc": "Farm-fresh red tomatoes, Grade A" },
+      "price": { "currency": "INR", "value": "300" },
+      "category_id": "produce",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "produce" }] }]
+    },
+    {
+      "id": "agri-020",
+      "descriptor": { "name": "Onions 25kg", "short_desc": "Fresh Nashik red onions, medium size" },
+      "price": { "currency": "INR", "value": "500" },
+      "category_id": "produce",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "produce" }] }]
+    },
+    {
+      "id": "agri-021",
+      "descriptor": { "name": "Potatoes 50kg", "short_desc": "Fresh Agra potatoes for wholesale and retail" },
+      "price": { "currency": "INR", "value": "800" },
+      "category_id": "produce",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "produce" }] }]
+    },
+    {
+      "id": "agri-022",
+      "descriptor": { "name": "Green Chillies 5kg", "short_desc": "Fresh Indian green chillies, high heat variety" },
+      "price": { "currency": "INR", "value": "200" },
+      "category_id": "produce",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "produce" }] }]
+    },
+    {
+      "id": "agri-023",
+      "descriptor": { "name": "Cauliflower (10 pcs)", "short_desc": "Fresh white cauliflower heads, medium to large" },
+      "price": { "currency": "INR", "value": "250" },
+      "category_id": "produce",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "produce" }] }]
+    },
+    {
+      "id": "agri-024",
+      "descriptor": { "name": "Cow Dung Manure 50kg", "short_desc": "Dried and processed organic cow dung fertilizer" },
+      "price": { "currency": "INR", "value": "200" },
+      "category_id": "fertilizers",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "organic" }] }]
+    },
+    {
+      "id": "agri-025",
+      "descriptor": { "name": "Mulching Sheet (100m x 1.2m)", "short_desc": "Black plastic mulch for weed control and moisture retention" },
+      "price": { "currency": "INR", "value": "1200" },
+      "category_id": "equipment",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "equipment" }] }]
+    },
+    {
+      "id": "agri-026",
+      "descriptor": { "name": "Sugarcane Sets 1000 pcs", "short_desc": "Disease-free sugarcane seed cuttings" },
+      "price": { "currency": "INR", "value": "2500" },
+      "category_id": "seeds",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "seeds" }] }]
+    },
+    {
+      "id": "agri-027",
+      "descriptor": { "name": "Soil Testing Kit", "short_desc": "NPK, pH and organic carbon testing kit for farmers" },
+      "price": { "currency": "INR", "value": "750" },
+      "category_id": "equipment",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "equipment" }] }]
+    }
+  ]
+}

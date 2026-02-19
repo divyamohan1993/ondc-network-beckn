@@ -1,0 +1,181 @@
+{
+  "domain": "ONDC:LOG10",
+  "items": [
+    {
+      "id": "log-001",
+      "descriptor": { "name": "Same-Day Courier (up to 1kg)", "short_desc": "Same-day delivery within city for documents and small packages" },
+      "price": { "currency": "INR", "value": "80" },
+      "category_id": "courier",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "courier" }] }]
+    },
+    {
+      "id": "log-002",
+      "descriptor": { "name": "Next-Day Courier (up to 5kg)", "short_desc": "Next business day delivery for medium parcels" },
+      "price": { "currency": "INR", "value": "150" },
+      "category_id": "courier",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "courier" }] }]
+    },
+    {
+      "id": "log-003",
+      "descriptor": { "name": "Express Courier (up to 10kg)", "short_desc": "Express inter-city delivery in 2-3 days" },
+      "price": { "currency": "INR", "value": "300" },
+      "category_id": "courier",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "courier" }] }]
+    },
+    {
+      "id": "log-004",
+      "descriptor": { "name": "Economy Courier (up to 20kg)", "short_desc": "Budget-friendly delivery in 5-7 days" },
+      "price": { "currency": "INR", "value": "200" },
+      "category_id": "courier",
+      "fulfillment_id": "delivery-economy",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "courier" }] }]
+    },
+    {
+      "id": "log-005",
+      "descriptor": { "name": "Heavy Parcel (up to 50kg)", "short_desc": "Heavy item shipping for electronics and appliances" },
+      "price": { "currency": "INR", "value": "500" },
+      "category_id": "courier",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "courier" }] }]
+    },
+    {
+      "id": "log-006",
+      "descriptor": { "name": "Warehouse Space 100sqft (Monthly)", "short_desc": "Secure warehouse storage for small inventory" },
+      "price": { "currency": "INR", "value": "5000" },
+      "category_id": "warehouse",
+      "fulfillment_id": "service-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "warehouse" }] }]
+    },
+    {
+      "id": "log-007",
+      "descriptor": { "name": "Warehouse Space 500sqft (Monthly)", "short_desc": "Medium warehouse with loading dock access" },
+      "price": { "currency": "INR", "value": "20000" },
+      "category_id": "warehouse",
+      "fulfillment_id": "service-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "warehouse" }] }]
+    },
+    {
+      "id": "log-008",
+      "descriptor": { "name": "Warehouse Space 2000sqft (Monthly)", "short_desc": "Large warehouse with forklift and pallet storage" },
+      "price": { "currency": "INR", "value": "65000" },
+      "category_id": "warehouse",
+      "fulfillment_id": "service-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "warehouse" }] }]
+    },
+    {
+      "id": "log-009",
+      "descriptor": { "name": "Mini Truck (1 Ton) - Per Trip", "short_desc": "Small truck for intra-city goods movement" },
+      "price": { "currency": "INR", "value": "2000" },
+      "category_id": "fleet",
+      "fulfillment_id": "delivery-fleet",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "fleet" }] }]
+    },
+    {
+      "id": "log-010",
+      "descriptor": { "name": "Full Truck (5 Ton) - Per Trip", "short_desc": "Medium truck for inter-city freight transport" },
+      "price": { "currency": "INR", "value": "8000" },
+      "category_id": "fleet",
+      "fulfillment_id": "delivery-fleet",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "fleet" }] }]
+    },
+    {
+      "id": "log-011",
+      "descriptor": { "name": "Container Truck (16 Ton) - Per Trip", "short_desc": "Heavy container truck for long-haul freight" },
+      "price": { "currency": "INR", "value": "25000" },
+      "category_id": "fleet",
+      "fulfillment_id": "delivery-fleet",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "fleet" }] }]
+    },
+    {
+      "id": "log-012",
+      "descriptor": { "name": "Bike Delivery (up to 5kg)", "short_desc": "Two-wheeler hyperlocal delivery within 10km" },
+      "price": { "currency": "INR", "value": "50" },
+      "category_id": "last-mile",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "last-mile" }] }]
+    },
+    {
+      "id": "log-013",
+      "descriptor": { "name": "Tempo (3-Wheeler) - Per Trip", "short_desc": "Auto-rickshaw goods carrier for local delivery" },
+      "price": { "currency": "INR", "value": "800" },
+      "category_id": "fleet",
+      "fulfillment_id": "delivery-fleet",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "fleet" }] }]
+    },
+    {
+      "id": "log-014",
+      "descriptor": { "name": "Cold Storage 50sqft (Monthly)", "short_desc": "Temperature-controlled storage for perishables" },
+      "price": { "currency": "INR", "value": "8000" },
+      "category_id": "cold-storage",
+      "fulfillment_id": "service-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "cold-storage" }] }]
+    },
+    {
+      "id": "log-015",
+      "descriptor": { "name": "Cold Storage 200sqft (Monthly)", "short_desc": "Large cold storage for FMCG and pharma products" },
+      "price": { "currency": "INR", "value": "28000" },
+      "category_id": "cold-storage",
+      "fulfillment_id": "service-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "cold-storage" }] }]
+    },
+    {
+      "id": "log-016",
+      "descriptor": { "name": "Packaging Service (per order)", "short_desc": "Professional packaging with bubble wrap and carton" },
+      "price": { "currency": "INR", "value": "35" },
+      "category_id": "packaging",
+      "fulfillment_id": "service-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "packaging" }] }]
+    },
+    {
+      "id": "log-017",
+      "descriptor": { "name": "Fragile Item Packaging", "short_desc": "Special packaging for glass, electronics and delicate items" },
+      "price": { "currency": "INR", "value": "75" },
+      "category_id": "packaging",
+      "fulfillment_id": "service-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "packaging" }] }]
+    },
+    {
+      "id": "log-018",
+      "descriptor": { "name": "Refrigerated Truck - Per Trip", "short_desc": "Temperature-controlled transport for perishable goods" },
+      "price": { "currency": "INR", "value": "12000" },
+      "category_id": "fleet",
+      "fulfillment_id": "delivery-fleet",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "fleet" }] }]
+    },
+    {
+      "id": "log-019",
+      "descriptor": { "name": "Return Pickup Service", "short_desc": "Pickup and return of e-commerce orders" },
+      "price": { "currency": "INR", "value": "60" },
+      "category_id": "reverse-logistics",
+      "fulfillment_id": "delivery-standard",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "reverse" }] }]
+    },
+    {
+      "id": "log-020",
+      "descriptor": { "name": "International Courier (up to 2kg)", "short_desc": "Global delivery via air freight, 7-10 days" },
+      "price": { "currency": "INR", "value": "1500" },
+      "category_id": "international",
+      "fulfillment_id": "delivery-international",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "international" }] }]
+    },
+    {
+      "id": "log-021",
+      "descriptor": { "name": "Hyperlocal Delivery (30 min)", "short_desc": "Instant delivery within 5km radius" },
+      "price": { "currency": "INR", "value": "40" },
+      "category_id": "last-mile",
+      "fulfillment_id": "delivery-instant",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "last-mile" }] }]
+    },
+    {
+      "id": "log-022",
+      "descriptor": { "name": "Pickup & Drop (Intracity)", "short_desc": "On-demand item pickup and delivery within city" },
+      "price": { "currency": "INR", "value": "100" },
+      "category_id": "last-mile",
+      "fulfillment_id": "delivery-express",
+      "tags": [{ "code": "type", "list": [{ "code": "type", "value": "last-mile" }] }]
+    }
+  ]
+}

@@ -1,0 +1,519 @@
+version: "3.8"
+
+services:
+  # =========================================================================
+  # Infrastructure
+  # =========================================================================
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ondc}
+      POSTGRES_USER: ${POSTGRES_USER:-ondc_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ondc_admin} -d ${POSTGRES_DB:-ondc}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: infrastructure
+      ondc.service.name: postgres
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: infrastructure
+      ondc.service.name: redis
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ondc}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: infrastructure
+      ondc.service.name: rabbitmq
+
+  # =========================================================================
+  # Secret Vault (starts first after infrastructure)
+  # =========================================================================
+
+  vault:
+    build:
+      context: .
+      dockerfile: packages/vault/Dockerfile
+    environment:
+      VAULT_PORT: ${VAULT_PORT:-3006}
+      VAULT_MASTER_KEY: ${VAULT_MASTER_KEY}
+      VAULT_TOKEN_SECRET: ${VAULT_TOKEN_SECRET}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ondc_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ondc}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    ports:
+      - "${VAULT_PORT:-3006}:3006"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3006/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: agent
+      ondc.service.name: vault
+
+  # =========================================================================
+  # Core Beckn Services
+  # =========================================================================
+
+  registry:
+    build:
+      context: .
+      dockerfile: packages/registry/Dockerfile
+    environment:
+      REGISTRY_PORT: ${REGISTRY_PORT:-3001}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ondc_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ondc}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REGISTRY_SUBSCRIBER_ID: ${REGISTRY_SUBSCRIBER_ID:-registry.ondc.dmj.one}
+      REGISTRY_SIGNING_PRIVATE_KEY: ${REGISTRY_SIGNING_PRIVATE_KEY}
+      REGISTRY_SIGNING_PUBLIC_KEY: ${REGISTRY_SIGNING_PUBLIC_KEY}
+      REGISTRY_UNIQUE_KEY_ID: ${REGISTRY_UNIQUE_KEY_ID:-registry-key-01}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      VAULT_URL: http://vault:3006
+      VAULT_SERVICE_ID: registry
+    ports:
+      - "${REGISTRY_PORT:-3001}:3001"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: core
+      ondc.service.name: registry
+
+  gateway:
+    build:
+      context: .
+      dockerfile: packages/gateway/Dockerfile
+    environment:
+      GATEWAY_PORT: ${GATEWAY_PORT:-3002}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ondc_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ondc}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ondc}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      REGISTRY_URL: http://registry:3001
+      GATEWAY_SUBSCRIBER_ID: ${GATEWAY_SUBSCRIBER_ID:-gateway.ondc.dmj.one}
+      GATEWAY_SIGNING_PRIVATE_KEY: ${GATEWAY_SIGNING_PRIVATE_KEY}
+      GATEWAY_SIGNING_PUBLIC_KEY: ${GATEWAY_SIGNING_PUBLIC_KEY}
+      GATEWAY_UNIQUE_KEY_ID: ${GATEWAY_UNIQUE_KEY_ID:-gateway-key-01}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      VAULT_URL: http://vault:3006
+      VAULT_SERVICE_ID: gateway
+    ports:
+      - "${GATEWAY_PORT:-3002}:3002"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3002/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      registry:
+        condition: service_healthy
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: core
+      ondc.service.name: gateway
+
+  bap:
+    build:
+      context: .
+      dockerfile: packages/bap/Dockerfile
+    environment:
+      BAP_PORT: ${BAP_PORT:-3004}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ondc_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ondc}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REGISTRY_URL: http://registry:3001
+      GATEWAY_URL: http://gateway:3002
+      BAP_SUBSCRIBER_ID: ${BAP_SUBSCRIBER_ID:-bap.ondc.dmj.one}
+      BAP_SUBSCRIBER_URL: https://bap.${DOMAIN:-ondc.dmj.one}
+      BAP_SIGNING_PRIVATE_KEY: ${BAP_SIGNING_PRIVATE_KEY}
+      BAP_SIGNING_PUBLIC_KEY: ${BAP_SIGNING_PUBLIC_KEY}
+      BAP_UNIQUE_KEY_ID: ${BAP_UNIQUE_KEY_ID:-bap-key-01}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      VAULT_URL: http://vault:3006
+      VAULT_SERVICE_ID: bap
+    ports:
+      - "${BAP_PORT:-3004}:3004"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3004/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      registry:
+        condition: service_healthy
+      gateway:
+        condition: service_healthy
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: core
+      ondc.service.name: bap
+
+  bpp:
+    build:
+      context: .
+      dockerfile: packages/bpp/Dockerfile
+    environment:
+      BPP_PORT: ${BPP_PORT:-3005}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ondc_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ondc}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REGISTRY_URL: http://registry:3001
+      BPP_SUBSCRIBER_ID: ${BPP_SUBSCRIBER_ID:-bpp.ondc.dmj.one}
+      BPP_SUBSCRIBER_URL: https://bpp.${DOMAIN:-ondc.dmj.one}
+      BPP_SIGNING_PRIVATE_KEY: ${BPP_SIGNING_PRIVATE_KEY}
+      BPP_SIGNING_PUBLIC_KEY: ${BPP_SIGNING_PUBLIC_KEY}
+      BPP_UNIQUE_KEY_ID: ${BPP_UNIQUE_KEY_ID:-bpp-key-01}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      VAULT_URL: http://vault:3006
+      VAULT_SERVICE_ID: bpp
+    ports:
+      - "${BPP_PORT:-3005}:3005"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3005/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      registry:
+        condition: service_healthy
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: core
+      ondc.service.name: bpp
+
+  # =========================================================================
+  # Admin & Docs
+  # =========================================================================
+
+  admin:
+    build:
+      context: .
+      dockerfile: packages/admin/Dockerfile
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ondc_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ondc}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: https://admin.${DOMAIN:-ondc.dmj.one}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@ondc.dmj.one}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      REGISTRY_INTERNAL_URL: http://registry:3001
+      MOCK_SERVER_URL: http://mock-server:3010
+      ORCHESTRATOR_URL: http://orchestrator:3007
+      VAULT_URL: http://vault:3006
+      HEALTH_MONITOR_URL: http://health-monitor:3008
+      LOG_AGGREGATOR_URL: http://log-aggregator:3009
+      SIMULATION_ENGINE_URL: http://simulation-engine:3011
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    ports:
+      - "${ADMIN_PORT:-3003}:3003"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3003/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: admin
+      ondc.service.name: admin
+
+  docs:
+    build:
+      context: .
+      dockerfile: packages/docs/Dockerfile
+    ports:
+      - "${DOCS_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: admin
+      ondc.service.name: docs
+
+  # =========================================================================
+  # Agent Services
+  # =========================================================================
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: packages/orchestrator/Dockerfile
+    environment:
+      ORCHESTRATOR_PORT: ${ORCHESTRATOR_PORT:-3007}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ondc_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ondc}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      VAULT_URL: http://vault:3006
+      VAULT_SERVICE_ID: orchestrator
+      DOCKER_SOCKET: /var/run/docker.sock
+    ports:
+      - "${ORCHESTRATOR_PORT:-3007}:3007"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3007/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vault:
+        condition: service_healthy
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: agent
+      ondc.service.name: orchestrator
+
+  health-monitor:
+    build:
+      context: .
+      dockerfile: packages/health-monitor/Dockerfile
+    environment:
+      HEALTH_MONITOR_PORT: ${HEALTH_MONITOR_PORT:-3008}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ondc_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ondc}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      HEALTH_CHECK_INTERVAL_MS: ${HEALTH_CHECK_INTERVAL_MS:-15000}
+      HEALTH_ALERT_THRESHOLD_MS: ${HEALTH_ALERT_THRESHOLD_MS:-5000}
+    ports:
+      - "${HEALTH_MONITOR_PORT:-3008}:3008"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3008/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: agent
+      ondc.service.name: health-monitor
+
+  log-aggregator:
+    build:
+      context: .
+      dockerfile: packages/log-aggregator/Dockerfile
+    environment:
+      LOG_AGGREGATOR_PORT: ${LOG_AGGREGATOR_PORT:-3009}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ondc_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ondc}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-30}
+    ports:
+      - "${LOG_AGGREGATOR_PORT:-3009}:3009"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3009/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: agent
+      ondc.service.name: log-aggregator
+
+  simulation-engine:
+    build:
+      context: .
+      dockerfile: packages/simulation-engine/Dockerfile
+    environment:
+      SIMULATION_ENGINE_PORT: ${SIMULATION_ENGINE_PORT:-3011}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ondc_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ondc}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REGISTRY_URL: http://registry:3001
+      BAP_URL: http://bap:3004
+      BPP_URL: http://bpp:3005
+      GATEWAY_URL: http://gateway:3002
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    ports:
+      - "${SIMULATION_ENGINE_PORT:-3011}:3011"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3011/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    profiles:
+      - simulation
+      - full
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: agent
+      ondc.service.name: simulation-engine
+
+  mock-server:
+    build:
+      context: .
+      dockerfile: packages/mock-server/Dockerfile
+    environment:
+      MOCK_SERVER_PORT: ${MOCK_SERVER_PORT:-3010}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ondc_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ondc}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      REGISTRY_URL: http://registry:3001
+      BAP_URL: http://bap:3004
+      BPP_URL: http://bpp:3005
+      GATEWAY_URL: http://gateway:3002
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+    ports:
+      - "${MOCK_SERVER_PORT:-3010}:3010"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3010/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    depends_on:
+      bap:
+        condition: service_healthy
+      bpp:
+        condition: service_healthy
+    profiles:
+      - simulation
+      - full
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: agent
+      ondc.service.name: mock-server
+
+  # =========================================================================
+  # Reverse Proxy
+  # =========================================================================
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      registry:
+        condition: service_healthy
+      gateway:
+        condition: service_healthy
+      bap:
+        condition: service_healthy
+      bpp:
+        condition: service_healthy
+      admin:
+        condition: service_healthy
+      docs:
+        condition: service_healthy
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: infrastructure
+      ondc.service.name: nginx
+
+networks:
+  ondc-network:
+    driver: bridge
