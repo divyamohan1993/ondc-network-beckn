@@ -1,6 +1,6 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@9.1.0 --activate
+RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY packages/shared/package.json packages/shared/
 COPY packages/bap/package.json packages/bap/
@@ -10,9 +10,9 @@ COPY packages/shared/ packages/shared/
 COPY packages/bap/ packages/bap/
 RUN pnpm --filter @ondc/shared build && pnpm --filter @ondc/bap build
 
-FROM node:20-alpine
+FROM node:22-alpine
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@9.1.0 --activate
+RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
 COPY --from=builder /app/pnpm-workspace.yaml /app/package.json ./
 COPY --from=builder /app/packages/shared/package.json packages/shared/
 COPY --from=builder /app/packages/shared/dist packages/shared/dist/

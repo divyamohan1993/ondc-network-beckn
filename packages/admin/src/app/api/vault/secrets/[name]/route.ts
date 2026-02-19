@@ -5,27 +5,27 @@ const VAULT_URL = process.env.VAULT_URL || 'http://vault:3006';
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { name: string } },
+  { params }: { params: Promise<{ name: string }> },
 ) {
   const session = await requireRole('SUPER_ADMIN');
   if (!session) {
     return unauthorized();
   }
 
-  const { name } = params;
+  const { name } = await params;
   return proxyToService(VAULT_URL, `/secrets/${encodeURIComponent(name)}`);
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { name: string } },
+  { params }: { params: Promise<{ name: string }> },
 ) {
   const session = await requireRole('SUPER_ADMIN');
   if (!session) {
     return unauthorized();
   }
 
-  const { name } = params;
+  const { name } = await params;
 
   let body: { value?: string; metadata?: Record<string, unknown> };
   try {
@@ -52,14 +52,14 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { name: string } },
+  { params }: { params: Promise<{ name: string }> },
 ) {
   const session = await requireRole('SUPER_ADMIN');
   if (!session) {
     return unauthorized();
   }
 
-  const { name } = params;
+  const { name } = await params;
   return proxyToService(VAULT_URL, `/secrets/${encodeURIComponent(name)}`, {
     method: 'DELETE',
   });

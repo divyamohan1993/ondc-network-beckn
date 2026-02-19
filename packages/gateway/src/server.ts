@@ -2,7 +2,7 @@ import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import amqplib from "amqplib";
-import Redis from "ioredis";
+import { Redis } from "ioredis";
 import {
   createDb,
   RegistryClient,
@@ -75,7 +75,7 @@ async function main(): Promise<void> {
   logger.info("Connecting to Redis...");
   const redis = new Redis(REDIS_URL);
 
-  redis.on("error", (err) => {
+  redis.on("error", (err: unknown) => {
     logger.error({ err }, "Redis connection error");
   });
 

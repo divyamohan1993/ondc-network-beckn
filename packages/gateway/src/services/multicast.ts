@@ -1,4 +1,4 @@
-import type { Connection, Channel } from "amqplib";
+import type { ChannelModel, Channel } from "amqplib";
 import { request as httpRequest } from "undici";
 import { buildGatewayAuthHeader, createLogger } from "@ondc/shared";
 import type { BecknRequest } from "@ondc/shared";
@@ -29,10 +29,10 @@ export interface SearchFanoutMessage {
  * requests to each BPP's /search endpoint.
  */
 export class MulticastService {
-  private readonly connection: Connection;
+  private readonly connection: ChannelModel;
   private channel: Channel | null = null;
 
-  constructor(rabbitConnection: Connection) {
+  constructor(rabbitConnection: ChannelModel) {
     this.connection = rabbitConnection;
   }
 

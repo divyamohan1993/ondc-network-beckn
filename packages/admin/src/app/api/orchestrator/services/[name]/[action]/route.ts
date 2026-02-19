@@ -7,14 +7,14 @@ const ALLOWED_ACTIONS = ['start', 'stop', 'restart'];
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { name: string; action: string } },
+  { params }: { params: Promise<{ name: string; action: string }> },
 ) {
   const session = await requireRole('SUPER_ADMIN');
   if (!session) {
     return unauthorized();
   }
 
-  const { name, action } = params;
+  const { name, action } = await params;
 
   if (!ALLOWED_ACTIONS.includes(action)) {
     return NextResponse.json(

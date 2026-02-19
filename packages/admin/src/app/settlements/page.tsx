@@ -6,7 +6,7 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     settlement_status?: string;
     recon_status?: string;
     collector?: string;
@@ -15,7 +15,7 @@ interface PageProps {
     to?: string;
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
 const PAGE_SIZE = 25;
@@ -46,7 +46,8 @@ function reconLabel(status: string | null) {
   return status.replace(/^\d+_/, '');
 }
 
-export default async function SettlementsPage({ searchParams }: PageProps) {
+export default async function SettlementsPage({ searchParams: searchParamsPromise }: PageProps) {
+  const searchParams = await searchParamsPromise;
   const page = parseInt(searchParams.page ?? '1', 10);
   const offset = (page - 1) * PAGE_SIZE;
 

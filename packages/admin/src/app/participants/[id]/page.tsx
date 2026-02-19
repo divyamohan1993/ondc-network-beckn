@@ -9,7 +9,7 @@ import CopyButton from './copy-button';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 function statusBadge(status: string | null) {
@@ -41,10 +41,11 @@ function maskKey(key: string) {
 }
 
 export default async function ParticipantDetailPage({ params }: PageProps) {
+  const { id } = await params;
   const [participant] = await db
     .select()
     .from(subscribers)
-    .where(eq(subscribers.id, params.id))
+    .where(eq(subscribers.id, id))
     .limit(1);
 
   if (!participant) {

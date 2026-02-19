@@ -4,7 +4,7 @@ services:
   # =========================================================================
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ondc}
       POSTGRES_USER: ${POSTGRES_USER:-ondc_admin}
@@ -25,7 +25,7 @@ services:
       ondc.service.name: postgres
 
   redis:
-    image: redis:7-alpine
+    image: redis:8-alpine
     command: redis-server --requirepass ${REDIS_PASSWORD}
     ports:
       - "6379:6379"
@@ -41,7 +41,7 @@ services:
       ondc.service.name: redis
 
   rabbitmq:
-    image: rabbitmq:3.13-management-alpine
+    image: rabbitmq:4-management-alpine
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ondc}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
@@ -482,7 +482,7 @@ services:
   # =========================================================================
 
   nginx:
-    image: nginx:alpine
+    image: nginx:1.28-alpine
     ports:
       - "80:80"
     healthcheck:

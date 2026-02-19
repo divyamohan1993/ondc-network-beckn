@@ -123,7 +123,7 @@ export const registerCallbackRoutes: FastifyPluginAsync = async (
               logger.info({ url, callbackAction }, "Callback sent to BAP");
             }
           })
-          .catch((err) => {
+          .catch((err: unknown) => {
             logger.error(
               { err, url, callbackAction },
               "Failed to send callback to BAP",

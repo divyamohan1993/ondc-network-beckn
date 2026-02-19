@@ -1,5 +1,5 @@
 import { request } from "undici";
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 import { randomUUID } from "node:crypto";
 import { eq, desc, sql } from "drizzle-orm";
 import { createLogger } from "@ondc/shared/utils";

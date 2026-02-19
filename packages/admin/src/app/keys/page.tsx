@@ -6,9 +6,9 @@ import KeyCopyButton from './key-copy-button';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     page?: string;
-  };
+  }>;
 }
 
 const PAGE_SIZE = 25;
@@ -18,7 +18,8 @@ function maskKey(key: string) {
   return key.slice(0, 8) + '...';
 }
 
-export default async function KeysPage({ searchParams }: PageProps) {
+export default async function KeysPage({ searchParams: searchParamsPromise }: PageProps) {
+  const searchParams = await searchParamsPromise;
   const page = parseInt(searchParams.page ?? '1', 10);
   const offset = (page - 1) * PAGE_SIZE;
 

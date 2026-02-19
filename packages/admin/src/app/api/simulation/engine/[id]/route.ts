@@ -7,27 +7,27 @@ const ALLOWED_ACTIONS = ['pause', 'resume', 'cancel'];
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await requireAuth();
   if (!session) {
     return unauthorized();
   }
 
-  const { id } = params;
+  const { id } = await params;
   return proxyToService(SIMULATION_ENGINE_URL, `/simulations/${encodeURIComponent(id)}`);
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await requireRole('SUPER_ADMIN');
   if (!session) {
     return unauthorized();
   }
 
-  const { id } = params;
+  const { id } = await params;
 
   let body: { action?: string };
   try {

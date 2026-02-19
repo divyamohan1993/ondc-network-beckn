@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 function statusBadge(status: string) {
@@ -31,10 +31,11 @@ function categoryBadge(category: string) {
 }
 
 export default async function IgmIssueDetailPage({ params }: PageProps) {
+  const { id } = await params;
   const [issue] = await db
     .select()
     .from(issues)
-    .where(eq(issues.id, params.id))
+    .where(eq(issues.id, id))
     .limit(1);
 
   if (!issue) {
@@ -147,7 +148,7 @@ export default async function IgmIssueDetailPage({ params }: PageProps) {
       </div>
 
       {/* Complainant Info */}
-      {issue.complainant_info && (
+      {issue.complainant_info != null && (
         <div className="card">
           <h3 className="card-header">Complainant Information</h3>
           <pre className="text-xs text-ash-300 overflow-auto max-h-48 font-mono bg-surface-raised/50 rounded-lg p-3">
@@ -186,7 +187,7 @@ export default async function IgmIssueDetailPage({ params }: PageProps) {
       </div>
 
       {/* Resolution */}
-      {issue.resolution && (
+      {issue.resolution != null && (
         <div className="card">
           <h3 className="card-header">Resolution</h3>
           <pre className="text-xs text-ash-300 overflow-auto max-h-48 font-mono bg-surface-raised/50 rounded-lg p-3">
@@ -196,7 +197,7 @@ export default async function IgmIssueDetailPage({ params }: PageProps) {
       )}
 
       {/* Resolution Provider */}
-      {issue.resolution_provider && (
+      {issue.resolution_provider != null && (
         <div className="card">
           <h3 className="card-header">Resolution Provider</h3>
           <pre className="text-xs text-ash-300 overflow-auto max-h-48 font-mono bg-surface-raised/50 rounded-lg p-3">

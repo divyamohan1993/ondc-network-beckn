@@ -5,15 +5,16 @@ import { networkPolicies } from '@ondc/shared';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     await db
       .update(networkPolicies)
       .set({ ...body, updated_at: new Date() })
-      .where(eq(networkPolicies.id, params.id));
+      .where(eq(networkPolicies.id, id));
 
     return NextResponse.json({ success: true });
   } catch (error) {

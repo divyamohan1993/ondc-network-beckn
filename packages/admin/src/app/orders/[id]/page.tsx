@@ -7,7 +7,7 @@ import { notFound } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 function stateBadge(state: string) {
@@ -23,10 +23,11 @@ function stateBadge(state: string) {
 }
 
 export default async function OrderDetailPage({ params }: PageProps) {
+  const { id } = await params;
   const [order] = await db
     .select()
     .from(orders)
-    .where(eq(orders.id, params.id))
+    .where(eq(orders.id, id))
     .limit(1);
 
   if (!order) {
@@ -120,7 +121,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
 
       {/* Order Data */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {order.provider && (
+        {order.provider != null && (
           <div className="card">
             <h3 className="card-header">Provider</h3>
             <pre className="text-xs text-ash-300 overflow-auto max-h-48 font-mono bg-surface-raised/50 rounded-lg p-3">
@@ -128,7 +129,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             </pre>
           </div>
         )}
-        {order.items && (
+        {order.items != null && (
           <div className="card">
             <h3 className="card-header">Items</h3>
             <pre className="text-xs text-ash-300 overflow-auto max-h-48 font-mono bg-surface-raised/50 rounded-lg p-3">
@@ -136,7 +137,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             </pre>
           </div>
         )}
-        {order.quote && (
+        {order.quote != null && (
           <div className="card">
             <h3 className="card-header">Quote</h3>
             <pre className="text-xs text-ash-300 overflow-auto max-h-48 font-mono bg-surface-raised/50 rounded-lg p-3">
@@ -144,7 +145,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             </pre>
           </div>
         )}
-        {order.payment && (
+        {order.payment != null && (
           <div className="card">
             <h3 className="card-header">Payment</h3>
             <pre className="text-xs text-ash-300 overflow-auto max-h-48 font-mono bg-surface-raised/50 rounded-lg p-3">
@@ -152,7 +153,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             </pre>
           </div>
         )}
-        {order.fulfillments && (
+        {order.fulfillments != null && (
           <div className="card">
             <h3 className="card-header">Fulfillments</h3>
             <pre className="text-xs text-ash-300 overflow-auto max-h-48 font-mono bg-surface-raised/50 rounded-lg p-3">
@@ -160,7 +161,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
             </pre>
           </div>
         )}
-        {order.billing && (
+        {order.billing != null && (
           <div className="card">
             <h3 className="card-header">Billing</h3>
             <pre className="text-xs text-ash-300 overflow-auto max-h-48 font-mono bg-surface-raised/50 rounded-lg p-3">

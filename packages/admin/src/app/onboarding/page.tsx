@@ -6,12 +6,12 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     status?: string;
     type?: string;
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
 const PAGE_SIZE = 25;
@@ -45,7 +45,8 @@ function statusStep(status: string): number {
   }
 }
 
-export default async function OnboardingPage({ searchParams }: PageProps) {
+export default async function OnboardingPage({ searchParams: searchParamsPromise }: PageProps) {
+  const searchParams = await searchParamsPromise;
   const page = parseInt(searchParams.page ?? '1', 10);
   const offset = (page - 1) * PAGE_SIZE;
 

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 import { eq, and, gte, lte, or, isNull, type SQL } from "drizzle-orm";
 import { createLogger } from "@ondc/shared/utils";
 import { subscribers, subscriberDomains, type Database } from "@ondc/shared/db";

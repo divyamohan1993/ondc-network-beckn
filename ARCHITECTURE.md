@@ -392,7 +392,7 @@ Every service uses the same efficient two-stage pattern:
 
 ```dockerfile
 # Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
   → Install pnpm
   → Copy workspace
   → Build @ondc/shared first
@@ -400,7 +400,7 @@ FROM node:20-alpine AS builder
   → Result: compiled JavaScript in dist/
 
 # Stage 2: Runtime
-FROM node:20-alpine
+FROM node:22-alpine
   → Copy dist + node_modules only
   → Minimal attack surface
   → EXPOSE port

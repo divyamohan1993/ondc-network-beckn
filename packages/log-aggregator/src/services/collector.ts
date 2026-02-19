@@ -1,4 +1,4 @@
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 import { eq, and, gte, lte, sql, desc, ilike } from "drizzle-orm";
 import { createLogger } from "@ondc/shared/utils";
 import type { Database } from "@ondc/shared/db";

@@ -1,5 +1,5 @@
 import { eq, and } from "drizzle-orm";
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 import { subscribers, type Database } from "@ondc/shared/db";
 
 const KEY_CACHE_PREFIX = "pubkey:";

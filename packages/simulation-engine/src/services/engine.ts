@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { request } from "undici";
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 import { eq, sql } from "drizzle-orm";
 import { createLogger } from "@ondc/shared/utils";
 import { generateKeyPair } from "@ondc/shared/crypto";

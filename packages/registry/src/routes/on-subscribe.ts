@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 import { createLogger } from "@ondc/shared/utils";
 import { ack, nack } from "@ondc/shared/protocol";
 import { decrypt } from "@ondc/shared/crypto";

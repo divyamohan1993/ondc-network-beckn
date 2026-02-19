@@ -418,7 +418,7 @@ export const registerRspRoutes: FastifyPluginAsync = async (
             Authorization: authHeader,
           },
           body: JSON.stringify(body),
-        }).catch((err) => {
+        }).catch((err: unknown) => {
           logger.error(
             { err, url: bapUrl, transactionId: context.transaction_id },
             "Failed to send receiver_recon to BAP",

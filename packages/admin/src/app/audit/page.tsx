@@ -6,18 +6,19 @@ import AuditRow from './audit-row';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     actor?: string;
     action?: string;
     from?: string;
     to?: string;
     page?: string;
-  };
+  }>;
 }
 
 const PAGE_SIZE = 25;
 
-export default async function AuditPage({ searchParams }: PageProps) {
+export default async function AuditPage({ searchParams: searchParamsPromise }: PageProps) {
+  const searchParams = await searchParamsPromise;
   const page = parseInt(searchParams.page ?? '1', 10);
   const offset = (page - 1) * PAGE_SIZE;
 

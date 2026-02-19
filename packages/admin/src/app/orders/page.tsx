@@ -6,7 +6,7 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     state?: string;
     bap_id?: string;
     bpp_id?: string;
@@ -15,7 +15,7 @@ interface PageProps {
     to?: string;
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
 const PAGE_SIZE = 25;
@@ -39,7 +39,8 @@ function stateBadge(state: string) {
   }
 }
 
-export default async function OrdersPage({ searchParams }: PageProps) {
+export default async function OrdersPage({ searchParams: searchParamsPromise }: PageProps) {
+  const searchParams = await searchParamsPromise;
   const page = parseInt(searchParams.page ?? '1', 10);
   const offset = (page - 1) * PAGE_SIZE;
 

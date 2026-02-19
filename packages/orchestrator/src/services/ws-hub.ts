@@ -83,7 +83,7 @@ export class WsHub {
       });
 
       // Handle incoming messages (for future client-to-server commands)
-      socket.on("message", (raw) => {
+      socket.on("message", (raw: Buffer | ArrayBuffer | Buffer[]) => {
         try {
           const message = JSON.parse(raw.toString());
           logger.debug({ clientId, message }, "Received WS message from client");
@@ -111,7 +111,7 @@ export class WsHub {
       });
 
       // Handle errors
-      socket.on("error", (err) => {
+      socket.on("error", (err: Error) => {
         logger.error({ err, clientId }, "WebSocket client error");
         this.clients.delete(clientId);
       });

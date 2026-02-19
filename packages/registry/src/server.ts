@@ -1,7 +1,7 @@
 import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
-import Redis from "ioredis";
+import { Redis } from "ioredis";
 import { createLogger } from "@ondc/shared/utils";
 import { createDb, type Database } from "@ondc/shared/db";
 

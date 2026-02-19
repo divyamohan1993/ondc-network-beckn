@@ -5,15 +5,16 @@ import { cities } from '@ondc/shared';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { id } = await params;
     const body = await request.json();
 
     await db
       .update(cities)
       .set(body)
-      .where(eq(cities.id, params.id));
+      .where(eq(cities.id, id));
 
     return NextResponse.json({ success: true });
   } catch (error) {

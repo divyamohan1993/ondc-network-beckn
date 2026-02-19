@@ -1,4 +1,5 @@
 export { RegistryClient } from "./registry-client.js";
+export type { RegistrySubscriber } from "./registry-client.js";
 export { createLogger } from "./logger.js";
 export { VaultClient, createVaultClient } from "./vault-client.js";
 export {

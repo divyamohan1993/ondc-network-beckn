@@ -7,13 +7,13 @@ import ParticipantActions from './actions';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     type?: string;
     domain?: string;
     status?: string;
     simulated?: string;
     page?: string;
-  };
+  }>;
 }
 
 const PAGE_SIZE = 20;
@@ -29,7 +29,8 @@ function statusBadge(status: string | null) {
   return map[status ?? ''] ?? 'badge-gray';
 }
 
-export default async function ParticipantsPage({ searchParams }: PageProps) {
+export default async function ParticipantsPage({ searchParams: searchParamsPromise }: PageProps) {
+  const searchParams = await searchParamsPromise;
   const page = parseInt(searchParams.page ?? '1', 10);
   const offset = (page - 1) * PAGE_SIZE;
 

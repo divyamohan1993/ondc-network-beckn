@@ -1,4 +1,4 @@
-import { x25519 } from "@noble/curves/ed25519";
+import { x25519 } from "@noble/curves/ed25519.js";
 import { randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
 
 export interface X25519KeyPair {

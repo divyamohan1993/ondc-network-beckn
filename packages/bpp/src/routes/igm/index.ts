@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import {
   IgmAction,
   IgmCallbackAction,
+  IssueCategory,
   IssueStatus,
   IGM_SLA,
   RespondentAction,
@@ -388,7 +389,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
           message: {
             issue: {
               id: issueId,
-              category: issueRecord?.category ?? "ORDER",
+              category: (issueRecord?.category ?? "ORDER") as IssueCategory,
               sub_category: (issueRecord?.sub_category ?? "ORD01") as import("@ondc/shared").IssueSubCategory,
               status: (issueRecord?.status ?? IssueStatus.OPEN) as IssueStatus,
               issue_actions: {

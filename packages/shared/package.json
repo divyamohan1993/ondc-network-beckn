@@ -19,21 +19,20 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@noble/ed25519": "^2.1.0",
-    "@noble/curves": "^1.4.0",
+    "@noble/curves": "^2.0.1",
     "blakejs": "^1.2.1",
-    "fastify": "^4.28.0",
-    "pino": "^9.0.0",
-    "ioredis": "^5.4.0",
-    "undici": "^6.0.0",
-    "uuid": "^9.0.0",
-    "drizzle-orm": "^0.31.0",
-    "pg": "^8.12.0"
+    "fastify": "^5.7.4",
+    "pino": "^10.3.1",
+    "ioredis": "^5.9.3",
+    "undici": "^7.22.0",
+    "uuid": "^11.1.0",
+    "drizzle-orm": "^0.45.1",
+    "pg": "^8.18.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/pg": "^8.11.0",
-    "drizzle-kit": "^0.21.0",
-    "typescript": "^5.4.0"
+    "@types/node": "^22.15.0",
+    "@types/pg": "^8.16.0",
+    "drizzle-kit": "^0.31.9",
+    "typescript": "^5.9.3"
   }
 }

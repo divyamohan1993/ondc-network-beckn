@@ -299,7 +299,7 @@ export interface SearchIntent {
   item?: {
     id?: string;
     descriptor?: Descriptor;
-    price?: { currency?: string; value?: string };
+    price?: { currency?: string; value?: string; minimum_value?: string; maximum_value?: string };
     category_id?: string;
   };
   tags?: Tag[];

@@ -6,7 +6,7 @@ import TransactionRow from './transaction-row';
 export const dynamic = 'force-dynamic';
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     domain?: string;
     action?: string;
     status?: string;
@@ -15,12 +15,13 @@ interface PageProps {
     simulated?: string;
     search?: string;
     page?: string;
-  };
+  }>;
 }
 
 const PAGE_SIZE = 25;
 
-export default async function TransactionsPage({ searchParams }: PageProps) {
+export default async function TransactionsPage({ searchParams: searchParamsPromise }: PageProps) {
+  const searchParams = await searchParamsPromise;
   const page = parseInt(searchParams.page ?? '1', 10);
   const offset = (page - 1) * PAGE_SIZE;
 

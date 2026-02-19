@@ -1,8 +1,8 @@
 # Stage 1: Build the application
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@9.1.0 --activate
+RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
 
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY packages/docs/package.json packages/docs/
@@ -11,10 +11,11 @@ RUN pnpm install --frozen-lockfile || pnpm install
 COPY packages/docs/ packages/docs/
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DOCKER_BUILD=1
 RUN cd packages/docs && pnpm run build
 
 # Stage 2: Production runner
-FROM node:20-alpine AS runner
+FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production

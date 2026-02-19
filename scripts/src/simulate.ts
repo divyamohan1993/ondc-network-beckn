@@ -4,7 +4,7 @@ import { randomUUID, randomBytes } from "node:crypto";
 import { request as httpRequest } from "undici";
 import * as ed from "@noble/ed25519";
 import { sha512 } from "@noble/hashes/sha512";
-import { edwardsToMontgomeryPub, edwardsToMontgomeryPriv } from "@noble/curves/ed25519";
+import { ed25519 } from "@noble/curves/ed25519.js";
 import {
   createDb,
   subscribers,
@@ -141,8 +141,8 @@ async function generateKeyPair() {
   const signingPrivateKeyBytes = ed.utils.randomPrivateKey();
   const signingPublicKeyBytes = await ed.getPublicKeyAsync(signingPrivateKeyBytes);
 
-  const encrPrivateKeyBytes = edwardsToMontgomeryPriv(signingPrivateKeyBytes);
-  const encrPublicKeyBytes = edwardsToMontgomeryPub(signingPublicKeyBytes);
+  const encrPrivateKeyBytes = ed25519.utils.toMontgomerySecret(signingPrivateKeyBytes);
+  const encrPublicKeyBytes = ed25519.utils.toMontgomery(signingPublicKeyBytes);
 
   return {
     signingPrivateKey: Buffer.from(signingPrivateKeyBytes).toString("base64"),

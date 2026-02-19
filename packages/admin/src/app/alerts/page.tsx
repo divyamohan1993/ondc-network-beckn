@@ -206,7 +206,7 @@ export default function AlertsPage() {
         <StatsCard
           label="Open Alerts"
           value={(summary?.openCritical ?? 0) + (summary?.openWarnings ?? 0) + (summary?.openInfo ?? 0)}
-          color="amber"
+          color="gold"
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
@@ -229,7 +229,7 @@ export default function AlertsPage() {
         <StatsCard
           label="Acknowledged"
           value={summary?.acknowledged ?? 0}
-          color="blue"
+          color="saffron"
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -239,7 +239,7 @@ export default function AlertsPage() {
         <StatsCard
           label="Resolved Today"
           value={summary?.resolvedToday ?? 0}
-          color="green"
+          color="teal"
           icon={
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />

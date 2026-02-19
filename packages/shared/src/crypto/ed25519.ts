@@ -1,14 +1,4 @@
-import * as ed from "@noble/ed25519";
-import { createHash } from "node:crypto";
-
-// Set up sha512 synchronous hash for @noble/ed25519 v2
-ed.etc.sha512Sync = (...messages: Uint8Array[]): Uint8Array => {
-  const hash = createHash("sha512");
-  for (const msg of messages) {
-    hash.update(msg);
-  }
-  return new Uint8Array(hash.digest());
-};
+import { ed25519 } from "@noble/curves/ed25519.js";
 
 export interface Ed25519KeyPair {
   privateKey: string;
@@ -20,8 +10,8 @@ export interface Ed25519KeyPair {
  * @returns Object with base64-encoded privateKey and publicKey.
  */
 export function generateKeyPair(): Ed25519KeyPair {
-  const privateKeyBytes = ed.utils.randomPrivateKey();
-  const publicKeyBytes = ed.getPublicKey(privateKeyBytes);
+  const privateKeyBytes = ed25519.utils.randomSecretKey();
+  const publicKeyBytes = ed25519.getPublicKey(privateKeyBytes);
 
   return {
     privateKey: Buffer.from(privateKeyBytes).toString("base64"),
@@ -38,7 +28,7 @@ export function generateKeyPair(): Ed25519KeyPair {
 export function sign(message: string, privateKeyBase64: string): string {
   const privateKeyBytes = Buffer.from(privateKeyBase64, "base64");
   const messageBytes = new TextEncoder().encode(message);
-  const signature = ed.sign(messageBytes, privateKeyBytes);
+  const signature = ed25519.sign(messageBytes, privateKeyBytes);
   return Buffer.from(signature).toString("base64");
 }
 
@@ -57,5 +47,5 @@ export function verify(
   const publicKeyBytes = Buffer.from(publicKeyBase64, "base64");
   const signatureBytes = Buffer.from(signatureBase64, "base64");
   const messageBytes = new TextEncoder().encode(message);
-  return ed.verify(signatureBytes, messageBytes, publicKeyBytes);
+  return ed25519.verify(signatureBytes, messageBytes, publicKeyBytes);
 }

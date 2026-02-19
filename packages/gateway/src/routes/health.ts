@@ -1,8 +1,8 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
-import type { Connection } from "amqplib";
+import type { ChannelModel } from "amqplib";
 
 export interface HealthRouteConfig {
-  rabbitConnection: Connection;
+  rabbitConnection: ChannelModel;
 }
 
 /**

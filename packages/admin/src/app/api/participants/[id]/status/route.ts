@@ -5,9 +5,10 @@ import { subscribers } from '@ondc/shared';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const { id } = await params;
     const { status } = await request.json();
 
     const validStatuses = ['INITIATED', 'UNDER_SUBSCRIPTION', 'SUBSCRIBED', 'SUSPENDED', 'REVOKED'];
@@ -18,7 +19,7 @@ export async function PATCH(
     await db
       .update(subscribers)
       .set({ status, updated_at: new Date() })
-      .where(eq(subscribers.id, params.id));
+      .where(eq(subscribers.id, id));
 
     return NextResponse.json({ success: true });
   } catch (error) {

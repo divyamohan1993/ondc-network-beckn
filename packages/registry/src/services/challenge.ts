@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type Redis from "ioredis";
+import type { Redis } from "ioredis";
 import { encrypt } from "@ondc/shared/crypto";
 
 const CHALLENGE_PREFIX = "challenge:";
