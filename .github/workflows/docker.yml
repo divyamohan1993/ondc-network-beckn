@@ -1,0 +1,148 @@
+name: Docker Build & Push
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/ondc
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      services: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            shared:
+              - 'packages/shared/**'
+              - 'tsconfig.base.json'
+              - 'pnpm-lock.yaml'
+            registry:
+              - 'packages/registry/**'
+              - 'packages/shared/**'
+            gateway:
+              - 'packages/gateway/**'
+              - 'packages/shared/**'
+            bap:
+              - 'packages/bap/**'
+              - 'packages/shared/**'
+            bpp:
+              - 'packages/bpp/**'
+              - 'packages/shared/**'
+            admin:
+              - 'packages/admin/**'
+              - 'packages/shared/**'
+            docs:
+              - 'packages/docs/**'
+            vault:
+              - 'packages/vault/**'
+              - 'packages/shared/**'
+            orchestrator:
+              - 'packages/orchestrator/**'
+              - 'packages/shared/**'
+            health-monitor:
+              - 'packages/health-monitor/**'
+              - 'packages/shared/**'
+            log-aggregator:
+              - 'packages/log-aggregator/**'
+              - 'packages/shared/**'
+            simulation-engine:
+              - 'packages/simulation-engine/**'
+              - 'packages/shared/**'
+            mock-server:
+              - 'packages/mock-server/**'
+              - 'packages/shared/**'
+
+  build-and-push:
+    name: Build ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.services != '[]' || github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: read
+      packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - registry
+          - gateway
+          - bap
+          - bpp
+          - admin
+          - docs
+          - vault
+          - orchestrator
+          - health-monitor
+          - log-aggregator
+          - simulation-engine
+          - mock-server
+
+    steps:
+      - name: Check if service changed
+        id: should-build
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          elif echo '${{ needs.changes.outputs.services }}' | jq -e 'index("shared")' > /dev/null 2>&1; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          elif echo '${{ needs.changes.outputs.services }}' | jq -e 'index("${{ matrix.service }}")' > /dev/null 2>&1; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.should-build.outputs.build == 'true'
+
+      - name: Set up Docker Buildx
+        if: steps.should-build.outputs.build == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: steps.should-build.outputs.build == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        if: steps.should-build.outputs.build == 'true'
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        if: steps.should-build.outputs.build == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: packages/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
