@@ -193,7 +193,7 @@ export function createNetworkPolicyMiddleware(config: NetworkPolicyConfig = {}) 
         reply.header("X-ONDC-Response-SLA", slaMs);
 
         // Also attach deadline to request for downstream use
-        (request as Record<string, unknown>)["ondcDeadline"] = Date.now() + slaMs;
+        (request as unknown as Record<string, unknown>)["ondcDeadline"] = Date.now() + slaMs;
       }
     }
 
