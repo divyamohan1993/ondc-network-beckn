@@ -1,0 +1,183 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ondc-ingress
+  namespace: ondc
+  labels:
+    app.kubernetes.io/part-of: ondc
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "86400"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "86400"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: SAMEORIGIN";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+spec:
+  tls:
+    - hosts:
+        - ondc.dmj.one
+        - "*.ondc.dmj.one"
+      secretName: ondc-tls
+  rules:
+    # Documentation portal
+    - host: ondc.dmj.one
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: docs-svc
+                port:
+                  number: 3000
+
+    # Registry API
+    - host: registry.ondc.dmj.one
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: registry-svc
+                port:
+                  number: 3001
+
+    # Gateway API
+    - host: gateway.ondc.dmj.one
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway-svc
+                port:
+                  number: 3002
+
+    # Admin panel — WebSocket path routes to orchestrator
+    - host: admin.ondc.dmj.one
+      http:
+        paths:
+          - path: /api/ws
+            pathType: Prefix
+            backend:
+              service:
+                name: orchestrator-svc
+                port:
+                  number: 3007
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-svc
+                port:
+                  number: 3003
+
+    # BAP API
+    - host: bap.ondc.dmj.one
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bap-svc
+                port:
+                  number: 3004
+
+    # BPP API
+    - host: bpp.ondc.dmj.one
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bpp-svc
+                port:
+                  number: 3005
+
+    # Vault API (internal)
+    - host: vault.ondc.dmj.one
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: vault-svc
+                port:
+                  number: 3006
+
+    # Orchestrator API + WebSocket
+    - host: orchestrator.ondc.dmj.one
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: orchestrator-svc
+                port:
+                  number: 3007
+---
+# Rate-limiting Ingress for API services
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ondc-ingress-rate-limited
+  namespace: ondc
+  labels:
+    app.kubernetes.io/part-of: ondc
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/limit-rps: "30"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "2"
+    nginx.ingress.kubernetes.io/limit-connections: "50"
+spec:
+  rules:
+    - host: registry.ondc.dmj.one
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: registry-svc
+                port:
+                  number: 3001
+    - host: gateway.ondc.dmj.one
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: gateway-svc
+                port:
+                  number: 3002
+    - host: bap.ondc.dmj.one
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bap-svc
+                port:
+                  number: 3004
+    - host: bpp.ondc.dmj.one
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: bpp-svc
+                port:
+                  number: 3005

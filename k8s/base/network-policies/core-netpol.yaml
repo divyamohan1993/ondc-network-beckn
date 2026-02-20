@@ -1,0 +1,64 @@
+# Allow all inter-service communication within ondc namespace
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-internal
+  namespace: ondc
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # From within the namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              ondc.io/tier: application
+    # From simulation namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              ondc.io/tier: simulation
+    # From ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+  egress:
+    # To infrastructure namespace
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              ondc.io/tier: infrastructure
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 6379
+          protocol: TCP
+        - port: 5672
+          protocol: TCP
+    # Within namespace
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              ondc.io/tier: application
+    # To simulation namespace
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              ondc.io/tier: simulation
+    # DNS
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # HTTPS outbound (for external API calls, GHCR, etc.)
+    - to: []
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP

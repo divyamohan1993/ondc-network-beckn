@@ -1,0 +1,74 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+commonLabels:
+  app.kubernetes.io/part-of: ondc
+  app.kubernetes.io/managed-by: kustomize
+
+resources:
+  # Namespaces
+  - namespaces.yaml
+
+  # Infrastructure
+  - infra/postgres-configmap.yaml
+  - infra/postgres-statefulset.yaml
+  - infra/postgres-service.yaml
+  - infra/redis-statefulset.yaml
+  - infra/redis-service.yaml
+  - infra/rabbitmq-statefulset.yaml
+  - infra/rabbitmq-service.yaml
+
+  # Secrets
+  - secrets/infra-secrets.yaml
+  - secrets/app-secrets.yaml
+  - secrets/admin-secrets.yaml
+
+  # ConfigMaps
+  - config/platform-config.yaml
+  - config/service-urls.yaml
+
+  # Core services
+  - core/vault-deployment.yaml
+  - core/vault-service.yaml
+  - core/registry-deployment.yaml
+  - core/registry-service.yaml
+  - core/gateway-deployment.yaml
+  - core/gateway-service.yaml
+  - core/bap-deployment.yaml
+  - core/bap-service.yaml
+  - core/bpp-deployment.yaml
+  - core/bpp-service.yaml
+  - core/admin-deployment.yaml
+  - core/admin-service.yaml
+  - core/docs-deployment.yaml
+  - core/docs-service.yaml
+
+  # Agent services
+  - agents/orchestrator-rbac.yaml
+  - agents/orchestrator-deployment.yaml
+  - agents/orchestrator-service.yaml
+  - agents/health-monitor-deployment.yaml
+  - agents/health-monitor-service.yaml
+  - agents/log-aggregator-deployment.yaml
+  - agents/log-aggregator-service.yaml
+
+  # Jobs
+  - jobs/db-init-job.yaml
+  - jobs/db-seed-job.yaml
+  - jobs/vault-seed-job.yaml
+
+  # Ingress
+  - ingress/ingress.yaml
+  - ingress/cert-issuer.yaml
+
+  # Network Policies
+  - network-policies/deny-all-default.yaml
+  - network-policies/infra-netpol.yaml
+  - network-policies/core-netpol.yaml
+  - network-policies/simulation-netpol.yaml
+
+  # HPAs
+  - hpa/registry-hpa.yaml
+  - hpa/gateway-hpa.yaml
+  - hpa/bap-hpa.yaml
+  - hpa/bpp-hpa.yaml

@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  namespace: ondc
+  labels:
+    app: gateway
+    app.kubernetes.io/part-of: ondc
+    ondc.io/tier: application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gateway
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: gateway
+        app.kubernetes.io/part-of: ondc
+        ondc.io/tier: application
+        ondc.io/service: gateway
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.37
+          command: ["sh", "-c", "until nc -z postgres.ondc-infra.svc.cluster.local 5432; do sleep 2; done"]
+        - name: wait-for-rabbitmq
+          image: busybox:1.37
+          command: ["sh", "-c", "until nc -z rabbitmq.ondc-infra.svc.cluster.local 5672; do sleep 2; done"]
+        - name: wait-for-registry
+          image: busybox:1.37
+          command: ["sh", "-c", "until wget -qO- http://registry-svc.ondc.svc.cluster.local:3001/health; do sleep 2; done"]
+      containers:
+        - name: gateway
+          image: ghcr.io/divyamohan1993/ondc-gateway:latest
+          ports:
+            - containerPort: 3002
+              name: http
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - configMapRef:
+                name: service-urls
+          env:
+            - name: GATEWAY_PORT
+              value: "3002"
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: INTERNAL_API_KEY
+            - name: GATEWAY_SIGNING_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: GATEWAY_SIGNING_PRIVATE_KEY
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: REDIS_PASSWORD
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: RABBITMQ_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres.ondc-infra.svc.cluster.local:5432/$(POSTGRES_DB)"
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@redis.ondc-infra.svc.cluster.local:6379"
+            - name: RABBITMQ_URL
+              value: "amqp://ondc:$(RABBITMQ_PASSWORD)@rabbitmq.ondc-infra.svc.cluster.local:5672"
+            - name: VAULT_SERVICE_ID
+              value: "gateway"
+          resources:
+            requests:
+              cpu: 200m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3

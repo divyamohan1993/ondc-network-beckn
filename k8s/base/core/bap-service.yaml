@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bap-svc
+  namespace: ondc
+  labels:
+    app: bap
+    app.kubernetes.io/part-of: ondc
+spec:
+  selector:
+    app: bap
+  ports:
+    - port: 3004
+      targetPort: 3004
+      name: http

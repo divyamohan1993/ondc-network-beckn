@@ -1,0 +1,10 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: bpp-pdb
+  namespace: ondc
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: bpp

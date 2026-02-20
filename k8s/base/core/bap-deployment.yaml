@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bap
+  namespace: ondc
+  labels:
+    app: bap
+    app.kubernetes.io/part-of: ondc
+    ondc.io/tier: application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: bap
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: bap
+        app.kubernetes.io/part-of: ondc
+        ondc.io/tier: application
+        ondc.io/service: bap
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.37
+          command: ["sh", "-c", "until nc -z postgres.ondc-infra.svc.cluster.local 5432; do sleep 2; done"]
+        - name: wait-for-registry
+          image: busybox:1.37
+          command: ["sh", "-c", "until wget -qO- http://registry-svc.ondc.svc.cluster.local:3001/health; do sleep 2; done"]
+      containers:
+        - name: bap
+          image: ghcr.io/divyamohan1993/ondc-bap:latest
+          ports:
+            - containerPort: 3004
+              name: http
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - configMapRef:
+                name: service-urls
+          env:
+            - name: BAP_PORT
+              value: "3004"
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: INTERNAL_API_KEY
+            - name: BAP_SIGNING_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: BAP_SIGNING_PRIVATE_KEY
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: REDIS_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres.ondc-infra.svc.cluster.local:5432/$(POSTGRES_DB)"
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@redis.ondc-infra.svc.cluster.local:6379"
+            - name: VAULT_SERVICE_ID
+              value: "bap"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3004
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3

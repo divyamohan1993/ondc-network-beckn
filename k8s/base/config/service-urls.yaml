@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: service-urls
+  namespace: ondc
+  labels:
+    app.kubernetes.io/part-of: ondc
+data:
+  # Inter-service URLs using K8s DNS
+  REGISTRY_URL: "http://registry-svc.ondc.svc.cluster.local:3001"
+  GATEWAY_URL: "http://gateway-svc.ondc.svc.cluster.local:3002"
+  ADMIN_URL: "http://admin-svc.ondc.svc.cluster.local:3003"
+  BAP_URL: "http://bap-svc.ondc.svc.cluster.local:3004"
+  BPP_URL: "http://bpp-svc.ondc.svc.cluster.local:3005"
+  VAULT_URL: "http://vault-svc.ondc.svc.cluster.local:3006"
+  ORCHESTRATOR_URL: "http://orchestrator-svc.ondc.svc.cluster.local:3007"
+  HEALTH_MONITOR_URL: "http://health-monitor-svc.ondc.svc.cluster.local:3008"
+  LOG_AGGREGATOR_URL: "http://log-aggregator-svc.ondc.svc.cluster.local:3009"
+  MOCK_SERVER_URL: "http://mock-server-svc.ondc-simulation.svc.cluster.local:3010"
+  SIMULATION_ENGINE_URL: "http://simulation-engine-svc.ondc-simulation.svc.cluster.local:3011"
+
+  # Subscriber URLs (how services register themselves in the network)
+  REGISTRY_SUBSCRIBER_URL: "http://registry-svc.ondc.svc.cluster.local:3001"
+  GATEWAY_SUBSCRIBER_URL: "http://gateway-svc.ondc.svc.cluster.local:3002"
+  BAP_SUBSCRIBER_URL: "http://bap-svc.ondc.svc.cluster.local:3004"
+  BPP_SUBSCRIBER_URL: "http://bpp-svc.ondc.svc.cluster.local:3005"

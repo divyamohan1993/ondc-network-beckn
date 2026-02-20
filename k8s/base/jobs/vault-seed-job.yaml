@@ -1,0 +1,136 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vault-seed
+  namespace: ondc
+  labels:
+    app: vault-seed
+    app.kubernetes.io/part-of: ondc
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: vault-seed
+    spec:
+      initContainers:
+        - name: wait-for-vault
+          image: busybox:1.37
+          command:
+            - sh
+            - -c
+            - |
+              until wget -qO- http://vault-svc.ondc.svc.cluster.local:3006/health; do
+                echo "waiting for vault..."
+                sleep 3
+              done
+      containers:
+        - name: vault-seed
+          image: curlimages/curl:latest
+          command:
+            - sh
+            - -c
+            - |
+              VAULT_API="http://vault-svc.ondc.svc.cluster.local:3006"
+
+              seed_secret() {
+                local name="$1"
+                local value="$2"
+                local service="$3"
+                local rotation_interval="${4:-0}"
+
+                curl -sf -X POST "${VAULT_API}/secrets" \
+                  -H "Content-Type: application/json" \
+                  -H "x-internal-api-key: ${INTERNAL_API_KEY}" \
+                  -d "{\"name\":\"${name}\",\"value\":\"${value}\",\"service\":\"${service}\",\"rotationInterval\":${rotation_interval}}" \
+                  > /dev/null 2>&1 && echo "  Seeded: ${name}" || echo "  Exists: ${name}"
+              }
+
+              echo "=== Seeding secrets into vault ==="
+              seed_secret "POSTGRES_PASSWORD" "$POSTGRES_PASSWORD" "postgres" 86400
+              seed_secret "REDIS_PASSWORD" "$REDIS_PASSWORD" "redis" 86400
+              seed_secret "RABBITMQ_PASSWORD" "$RABBITMQ_PASSWORD" "rabbitmq" 86400
+              seed_secret "ADMIN_PASSWORD" "$ADMIN_PASSWORD" "admin" 604800
+              seed_secret "NEXTAUTH_SECRET" "$NEXTAUTH_SECRET" "admin" 2592000
+              seed_secret "INTERNAL_API_KEY" "$INTERNAL_API_KEY" "platform" 2592000
+              seed_secret "VAULT_TOKEN_SECRET" "$VAULT_TOKEN_SECRET" "vault" 2592000
+              seed_secret "REGISTRY_SIGNING_PRIVATE_KEY" "$REGISTRY_SIGNING_PRIVATE_KEY" "registry" 2592000
+              seed_secret "GATEWAY_SIGNING_PRIVATE_KEY" "$GATEWAY_SIGNING_PRIVATE_KEY" "gateway" 2592000
+              seed_secret "BAP_SIGNING_PRIVATE_KEY" "$BAP_SIGNING_PRIVATE_KEY" "bap" 2592000
+              seed_secret "BPP_SIGNING_PRIVATE_KEY" "$BPP_SIGNING_PRIVATE_KEY" "bpp" 2592000
+              echo "=== Secrets seeded ==="
+
+              echo "=== Registering rotation hooks ==="
+              register_hook() {
+                local secret_name="$1"
+                local callback_url="$2"
+                curl -sf -X POST "${VAULT_API}/rotation/hooks" \
+                  -H "Content-Type: application/json" \
+                  -H "x-internal-api-key: ${INTERNAL_API_KEY}" \
+                  -d "{\"secretName\":\"${secret_name}\",\"callbackUrl\":\"${callback_url}\"}" \
+                  > /dev/null 2>&1 && echo "  Hook: ${secret_name} -> ${callback_url}" || true
+              }
+
+              register_hook "POSTGRES_PASSWORD" "http://orchestrator-svc.ondc.svc.cluster.local:3007/hooks/secret-rotated"
+              register_hook "REDIS_PASSWORD" "http://orchestrator-svc.ondc.svc.cluster.local:3007/hooks/secret-rotated"
+              register_hook "RABBITMQ_PASSWORD" "http://orchestrator-svc.ondc.svc.cluster.local:3007/hooks/secret-rotated"
+              register_hook "INTERNAL_API_KEY" "http://orchestrator-svc.ondc.svc.cluster.local:3007/hooks/secret-rotated"
+              echo "=== Rotation hooks registered ==="
+          env:
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: INTERNAL_API_KEY
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: REDIS_PASSWORD
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: RABBITMQ_PASSWORD
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: admin-secrets
+                  key: ADMIN_PASSWORD
+            - name: NEXTAUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: admin-secrets
+                  key: NEXTAUTH_SECRET
+            - name: VAULT_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: VAULT_TOKEN_SECRET
+            - name: REGISTRY_SIGNING_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: REGISTRY_SIGNING_PRIVATE_KEY
+            - name: GATEWAY_SIGNING_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: GATEWAY_SIGNING_PRIVATE_KEY
+            - name: BAP_SIGNING_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: BAP_SIGNING_PRIVATE_KEY
+            - name: BPP_SIGNING_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: BPP_SIGNING_PRIVATE_KEY
+      restartPolicy: OnFailure

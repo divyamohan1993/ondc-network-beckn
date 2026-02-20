@@ -1,0 +1,65 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+  # PodDisruptionBudgets for production
+  - pdb/registry-pdb.yaml
+  - pdb/gateway-pdb.yaml
+  - pdb/bap-pdb.yaml
+  - pdb/bpp-pdb.yaml
+
+patches:
+  # Production replicas
+  - target:
+      kind: Deployment
+      name: registry
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+
+  - target:
+      kind: Deployment
+      name: gateway
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+
+  - target:
+      kind: Deployment
+      name: bap
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+
+  - target:
+      kind: Deployment
+      name: bpp
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 3
+
+  # Larger PVC for production postgres
+  - target:
+      kind: StatefulSet
+      name: postgres
+    patch: |-
+      - op: replace
+        path: /spec/volumeClaimTemplates/0/spec/resources/requests/storage
+        value: 50Gi
+
+  # Higher resources for production postgres
+  - target:
+      kind: StatefulSet
+      name: postgres
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/cpu
+        value: "4"
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits/memory
+        value: 2Gi

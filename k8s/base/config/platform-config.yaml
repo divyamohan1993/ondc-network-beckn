@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-config
+  namespace: ondc
+  labels:
+    app.kubernetes.io/part-of: ondc
+data:
+  # Domain
+  DOMAIN: "ondc.dmj.one"
+
+  # Database
+  POSTGRES_HOST: "postgres.ondc-infra.svc.cluster.local"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "ondc"
+  POSTGRES_USER: "ondc_admin"
+
+  # Redis
+  REDIS_HOST: "redis.ondc-infra.svc.cluster.local"
+  REDIS_PORT: "6379"
+
+  # RabbitMQ
+  RABBITMQ_HOST: "rabbitmq.ondc-infra.svc.cluster.local"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_USER: "ondc"
+
+  # Service ports
+  REGISTRY_PORT: "3001"
+  GATEWAY_PORT: "3002"
+  ADMIN_PORT: "3003"
+  BAP_PORT: "3004"
+  BPP_PORT: "3005"
+  VAULT_PORT: "3006"
+  ORCHESTRATOR_PORT: "3007"
+  HEALTH_MONITOR_PORT: "3008"
+  LOG_AGGREGATOR_PORT: "3009"
+  MOCK_SERVER_PORT: "3010"
+  SIMULATION_ENGINE_PORT: "3011"
+  DOCS_PORT: "3000"
+
+  # Subscriber IDs
+  REGISTRY_SUBSCRIBER_ID: "registry.ondc.dmj.one"
+  GATEWAY_SUBSCRIBER_ID: "gateway.ondc.dmj.one"
+  BAP_SUBSCRIBER_ID: "bap.ondc.dmj.one"
+  BPP_SUBSCRIBER_ID: "bpp.ondc.dmj.one"
+
+  # Beckn protocol
+  BECKN_CORE_VERSION: "1.1.0"
+  BECKN_COUNTRY: "IND"
+  DEFAULT_CITY: "std:011"
+  MAX_RESPONSE_TIME_MS: "30000"
+  SIGNATURE_TTL_SECONDS: "300"
+
+  # Rate limiting
+  RATE_LIMIT_MAX: "100"
+  RATE_LIMIT_WINDOW: "60"
+  DEDUP_TTL: "300"
+
+  # Health monitoring
+  HEALTH_CHECK_INTERVAL_MS: "15000"
+  HEALTH_ALERT_THRESHOLD_MS: "5000"
+
+  # Logging
+  LOG_RETENTION_DAYS: "30"
+  LOG_LEVEL: "info"
+
+  # Rotation
+  PASSWORD_ROTATION_INTERVAL_HOURS: "24"
+  SIGNING_KEY_ROTATION_INTERVAL_DAYS: "30"
+
+  # Admin
+  ADMIN_EMAIL: "admin@ondc.dmj.one"

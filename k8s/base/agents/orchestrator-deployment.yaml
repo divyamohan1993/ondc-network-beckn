@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orchestrator
+  namespace: ondc
+  labels:
+    app: orchestrator
+    app.kubernetes.io/part-of: ondc
+    ondc.io/tier: application
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: orchestrator
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: orchestrator
+        app.kubernetes.io/part-of: ondc
+        ondc.io/tier: application
+        ondc.io/service: orchestrator
+    spec:
+      serviceAccountName: orchestrator-sa
+      containers:
+        - name: orchestrator
+          image: ghcr.io/divyamohan1993/ondc-orchestrator:latest
+          ports:
+            - containerPort: 3007
+              name: http
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - configMapRef:
+                name: service-urls
+          env:
+            - name: ORCHESTRATOR_PORT
+              value: "3007"
+            - name: RUNTIME_MODE
+              value: "k8s"
+            - name: K8S_NAMESPACE
+              value: "ondc"
+            - name: K8S_INFRA_NAMESPACE
+              value: "ondc-infra"
+            - name: K8S_SIMULATION_NAMESPACE
+              value: "ondc-simulation"
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: INTERNAL_API_KEY
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3007
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3007
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3

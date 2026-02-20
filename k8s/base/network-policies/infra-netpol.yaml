@@ -1,0 +1,43 @@
+# Allow application and simulation namespaces to reach infrastructure services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-from-apps
+  namespace: ondc-infra
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              ondc.io/tier: application
+        - namespaceSelector:
+            matchLabels:
+              ondc.io/tier: simulation
+        - namespaceSelector:
+            matchLabels:
+              ondc.io/tier: infrastructure
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 6379
+          protocol: TCP
+        - port: 5672
+          protocol: TCP
+        - port: 15672
+          protocol: TCP
+---
+# Allow infra pods to communicate with each other and reach external
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-infra-egress
+  namespace: ondc-infra
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to: []

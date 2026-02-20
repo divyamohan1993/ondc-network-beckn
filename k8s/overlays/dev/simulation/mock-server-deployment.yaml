@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mock-server
+  namespace: ondc-simulation
+  labels:
+    app: mock-server
+    app.kubernetes.io/part-of: ondc
+    ondc.io/tier: simulation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-server
+  template:
+    metadata:
+      labels:
+        app: mock-server
+        app.kubernetes.io/part-of: ondc
+        ondc.io/tier: simulation
+    spec:
+      initContainers:
+        - name: wait-for-bap
+          image: busybox:1.37
+          command: ["sh", "-c", "until wget -qO- http://bap-svc.ondc.svc.cluster.local:3004/health; do sleep 3; done"]
+      containers:
+        - name: mock-server
+          image: ghcr.io/divyamohan1993/ondc-mock-server:latest
+          ports:
+            - containerPort: 3010
+              name: http
+          envFrom:
+            - configMapRef:
+                name: platform-config
+                optional: true
+            - configMapRef:
+                name: service-urls
+                optional: true
+          env:
+            - name: MOCK_SERVER_PORT
+              value: "3010"
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: INTERNAL_API_KEY
+                  optional: true
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: POSTGRES_PASSWORD
+                  optional: true
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: REDIS_PASSWORD
+                  optional: true
+            - name: DATABASE_URL
+              value: "postgresql://ondc_admin:$(POSTGRES_PASSWORD)@postgres.ondc-infra.svc.cluster.local:5432/ondc"
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@redis.ondc-infra.svc.cluster.local:6379"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3010
+            initialDelaySeconds: 15
+            periodSeconds: 10

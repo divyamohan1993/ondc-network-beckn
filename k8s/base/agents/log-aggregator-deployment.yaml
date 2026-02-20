@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-aggregator
+  namespace: ondc
+  labels:
+    app: log-aggregator
+    app.kubernetes.io/part-of: ondc
+    ondc.io/tier: application
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: log-aggregator
+  template:
+    metadata:
+      labels:
+        app: log-aggregator
+        app.kubernetes.io/part-of: ondc
+        ondc.io/tier: application
+        ondc.io/service: log-aggregator
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.37
+          command: ["sh", "-c", "until nc -z postgres.ondc-infra.svc.cluster.local 5432; do sleep 2; done"]
+      containers:
+        - name: log-aggregator
+          image: ghcr.io/divyamohan1993/ondc-log-aggregator:latest
+          ports:
+            - containerPort: 3009
+              name: http
+          envFrom:
+            - configMapRef:
+                name: platform-config
+            - configMapRef:
+                name: service-urls
+          env:
+            - name: LOG_AGGREGATOR_PORT
+              value: "3009"
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: INTERNAL_API_KEY
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: POSTGRES_PASSWORD
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: REDIS_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@postgres.ondc-infra.svc.cluster.local:5432/$(POSTGRES_DB)"
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@redis.ondc-infra.svc.cluster.local:6379"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3009
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3009
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3

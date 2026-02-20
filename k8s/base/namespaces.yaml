@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ondc-infra
+  labels:
+    app.kubernetes.io/part-of: ondc
+    ondc.io/tier: infrastructure
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ondc
+  labels:
+    app.kubernetes.io/part-of: ondc
+    ondc.io/tier: application
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ondc-simulation
+  labels:
+    app.kubernetes.io/part-of: ondc
+    ondc.io/tier: simulation

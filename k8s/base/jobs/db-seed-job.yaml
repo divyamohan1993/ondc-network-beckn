@@ -1,0 +1,140 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-seed
+  namespace: ondc
+  labels:
+    app: db-seed
+    app.kubernetes.io/part-of: ondc
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: db-seed
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.37
+          command: ["sh", "-c", "until nc -z postgres.ondc-infra.svc.cluster.local 5432; do sleep 2; done"]
+      containers:
+        - name: db-seed
+          image: node:22-alpine
+          command:
+            - node
+            - -e
+            - |
+              const { Pool } = require('pg');
+              const crypto = require('crypto');
+
+              const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+              const DOMAIN = process.env.DOMAIN || 'ondc.dmj.one';
+
+              async function seed() {
+                const client = await pool.connect();
+                try {
+                  // Seed admin user (bcrypt not available in node:22-alpine by default, use raw hash placeholder)
+                  const adminEmail = process.env.ADMIN_EMAIL || 'admin@ondc.dmj.one';
+                  const adminPass = process.env.ADMIN_PASSWORD || 'changeme';
+
+                  // Use crypto for a basic hash since bcrypt isn't available
+                  const hash = crypto.createHash('sha256').update(adminPass).digest('hex');
+                  await client.query(
+                    `INSERT INTO admin_users (email, password_hash, name, role, is_active)
+                     VALUES ($1, $2, $3, $4, $5) ON CONFLICT (email) DO NOTHING`,
+                    [adminEmail, '$placeholder$' + hash, 'ONDC Admin', 'SUPER_ADMIN', true]
+                  );
+                  console.log('Admin user seeded:', adminEmail);
+
+                  // Seed domains
+                  const domains = [
+                    ['ONDC:NIC2004:49299', 'Water Delivery', 'Packaged drinking water and tanker delivery'],
+                    ['ONDC:RET10', 'Food & Grocery', 'Food delivery and grocery'],
+                    ['ONDC:AGR10', 'Agriculture', 'Agricultural products, seeds, fertilizers'],
+                    ['ONDC:LOG10', 'Logistics', 'Courier, warehousing, fleet'],
+                    ['ONDC:HLT10', 'Healthcare', 'Medicines, lab tests, consultations'],
+                    ['ONDC:RET12', 'Retail', 'Electronics, clothing, home goods'],
+                  ];
+                  for (const [code, name, desc] of domains) {
+                    await client.query(
+                      'INSERT INTO domains (code, name, description) VALUES ($1, $2, $3) ON CONFLICT (code) DO NOTHING',
+                      [code, name, desc]
+                    );
+                    console.log('  Domain:', code);
+                  }
+
+                  // Seed cities
+                  const cities = [
+                    ['std:011', 'Delhi', 'Delhi'],
+                    ['std:080', 'Bangalore', 'Karnataka'],
+                    ['std:022', 'Mumbai', 'Maharashtra'],
+                    ['std:044', 'Chennai', 'Tamil Nadu'],
+                    ['std:033', 'Kolkata', 'West Bengal'],
+                    ['std:040', 'Hyderabad', 'Telangana'],
+                    ['std:020', 'Pune', 'Maharashtra'],
+                    ['std:079', 'Ahmedabad', 'Gujarat'],
+                  ];
+                  for (const [code, name, state] of cities) {
+                    await client.query(
+                      'INSERT INTO cities (code, name, state) VALUES ($1, $2, $3) ON CONFLICT (code) DO NOTHING',
+                      [code, name, state]
+                    );
+                    console.log('  City:', code);
+                  }
+
+                  // Seed registry and gateway subscribers
+                  function genEd25519Pub() {
+                    const kp = crypto.generateKeyPairSync('ed25519');
+                    const pubDer = kp.publicKey.export({ type: 'spki', format: 'der' });
+                    return pubDer.slice(-32).toString('base64');
+                  }
+
+                  const regPub = genEd25519Pub();
+                  await client.query(
+                    `INSERT INTO subscribers (subscriber_id, subscriber_url, type, signing_public_key, unique_key_id, status, valid_from, valid_until)
+                     VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW() + interval '365 days') ON CONFLICT (subscriber_id) DO NOTHING`,
+                    ['registry.' + DOMAIN, 'http://registry-svc.ondc.svc.cluster.local:3001', 'BG', regPub, 'registry-key-01', 'SUBSCRIBED']
+                  );
+                  console.log('Registry subscriber seeded.');
+
+                  const gwPub = genEd25519Pub();
+                  await client.query(
+                    `INSERT INTO subscribers (subscriber_id, subscriber_url, type, signing_public_key, unique_key_id, status, valid_from, valid_until)
+                     VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW() + interval '365 days') ON CONFLICT (subscriber_id) DO NOTHING`,
+                    ['gateway.' + DOMAIN, 'http://gateway-svc.ondc.svc.cluster.local:3002', 'BG', gwPub, 'gateway-key-01', 'SUBSCRIBED']
+                  );
+                  console.log('Gateway subscriber seeded.');
+
+                  console.log('Seed completed successfully.');
+                } finally {
+                  client.release();
+                  await pool.end();
+                }
+              }
+
+              seed().catch(err => { console.error('Seed failed:', err); process.exit(1); });
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql://ondc_admin:$(POSTGRES_PASSWORD)@postgres.ondc-infra.svc.cluster.local:5432/ondc"
+            - name: DOMAIN
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: DOMAIN
+            - name: ADMIN_EMAIL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform-config
+                  key: ADMIN_EMAIL
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: admin-secrets
+                  key: ADMIN_PASSWORD
+      restartPolicy: OnFailure

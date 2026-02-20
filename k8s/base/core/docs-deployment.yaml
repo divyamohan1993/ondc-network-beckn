@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docs
+  namespace: ondc
+  labels:
+    app: docs
+    app.kubernetes.io/part-of: ondc
+    ondc.io/tier: application
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: docs
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: docs
+        app.kubernetes.io/part-of: ondc
+        ondc.io/tier: application
+        ondc.io/service: docs
+    spec:
+      containers:
+        - name: docs
+          image: ghcr.io/divyamohan1993/ondc-docs:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: DOCS_PORT
+              value: "3000"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3

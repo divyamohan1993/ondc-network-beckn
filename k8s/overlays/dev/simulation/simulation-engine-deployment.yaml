@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simulation-engine
+  namespace: ondc-simulation
+  labels:
+    app: simulation-engine
+    app.kubernetes.io/part-of: ondc
+    ondc.io/tier: simulation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: simulation-engine
+  template:
+    metadata:
+      labels:
+        app: simulation-engine
+        app.kubernetes.io/part-of: ondc
+        ondc.io/tier: simulation
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: busybox:1.37
+          command: ["sh", "-c", "until nc -z postgres.ondc-infra.svc.cluster.local 5432; do sleep 2; done"]
+      containers:
+        - name: simulation-engine
+          image: ghcr.io/divyamohan1993/ondc-simulation-engine:latest
+          ports:
+            - containerPort: 3011
+              name: http
+          envFrom:
+            - configMapRef:
+                name: platform-config
+                optional: true
+            - configMapRef:
+                name: service-urls
+                optional: true
+          env:
+            - name: SIMULATION_ENGINE_PORT
+              value: "3011"
+            - name: INTERNAL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: INTERNAL_API_KEY
+                  optional: true
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: POSTGRES_PASSWORD
+                  optional: true
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: REDIS_PASSWORD
+                  optional: true
+            - name: DATABASE_URL
+              value: "postgresql://ondc_admin:$(POSTGRES_PASSWORD)@postgres.ondc-infra.svc.cluster.local:5432/ondc"
+            - name: REDIS_URL
+              value: "redis://:$(REDIS_PASSWORD)@redis.ondc-infra.svc.cluster.local:6379"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3011
+            initialDelaySeconds: 15
+            periodSeconds: 10

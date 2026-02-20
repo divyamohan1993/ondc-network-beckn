@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry-svc
+  namespace: ondc
+  labels:
+    app: registry
+    app.kubernetes.io/part-of: ondc
+spec:
+  selector:
+    app: registry
+  ports:
+    - port: 3001
+      targetPort: 3001
+      name: http

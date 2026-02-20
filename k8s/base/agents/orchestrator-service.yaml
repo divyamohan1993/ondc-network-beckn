@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: orchestrator-svc
+  namespace: ondc
+  labels:
+    app: orchestrator
+    app.kubernetes.io/part-of: ondc
+spec:
+  selector:
+    app: orchestrator
+  ports:
+    - port: 3007
+      targetPort: 3007
+      name: http

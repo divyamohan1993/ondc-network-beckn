@@ -1,0 +1,121 @@
+name: K8s Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: "Image tag to deploy (default: latest)"
+        required: false
+        default: "latest"
+        type: string
+
+concurrency:
+  group: k8s-deploy-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GKE_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ vars.GKE_CLUSTER_NAME || 'ondc-cluster' }}
+          location: ${{ vars.GKE_ZONE || 'us-central1-a' }}
+
+      - name: Set image tag
+        run: echo "IMAGE_TAG=${{ github.event.inputs.image_tag || 'latest' }}" >> $GITHUB_ENV
+
+      - name: Deploy to Kubernetes
+        run: |
+          OVERLAY="prod"
+          if [ "${{ github.event.inputs.environment }}" = "staging" ]; then
+            OVERLAY="dev"
+          fi
+
+          echo "Deploying with overlay: $OVERLAY, image tag: $IMAGE_TAG"
+
+          # Update image tags for all services
+          SERVICES="vault registry gateway bap bpp admin docs orchestrator health-monitor log-aggregator"
+          for svc in $SERVICES; do
+            kubectl set image "deployment/${svc}" "${svc}=ghcr.io/divyamohan1993/ondc-${svc}:${IMAGE_TAG}" \
+              -n ondc --record 2>/dev/null || echo "Skipped $svc (not found)"
+          done
+
+          # Wait for rollouts
+          for svc in $SERVICES; do
+            echo "Waiting for $svc rollout..."
+            kubectl rollout status "deployment/${svc}" -n ondc --timeout=300s 2>/dev/null || \
+              echo "WARNING: $svc rollout timed out"
+          done
+
+      - name: Verify deployment
+        run: |
+          echo "=== Pod Status ==="
+          kubectl get pods -n ondc -o wide
+          echo ""
+          echo "=== Pod Status (infra) ==="
+          kubectl get pods -n ondc-infra -o wide
+          echo ""
+          echo "=== Services ==="
+          kubectl get svc -n ondc
+          echo ""
+          echo "=== Ingress ==="
+          kubectl get ingress -n ondc
+
+      - name: Health check
+        run: |
+          # Quick health check via port-forward
+          SERVICES="registry:3001 gateway:3002 bap:3004 bpp:3005 vault:3006"
+          HEALTHY=0
+          TOTAL=0
+
+          for entry in $SERVICES; do
+            SVC="${entry%%:*}"
+            PORT="${entry##*:}"
+            TOTAL=$((TOTAL + 1))
+
+            # Port-forward in background
+            kubectl port-forward "svc/${SVC}-svc" "${PORT}:${PORT}" -n ondc &
+            PF_PID=$!
+            sleep 3
+
+            if curl -sf "http://localhost:${PORT}/health" > /dev/null 2>&1; then
+              echo "✓ $SVC healthy"
+              HEALTHY=$((HEALTHY + 1))
+            else
+              echo "✗ $SVC unhealthy"
+            fi
+
+            kill $PF_PID 2>/dev/null || true
+            wait $PF_PID 2>/dev/null || true
+          done
+
+          echo ""
+          echo "Health: $HEALTHY/$TOTAL services healthy"
+
+          if [ $HEALTHY -lt 3 ]; then
+            echo "::warning::Less than 3 services are healthy after deployment"
+          fi

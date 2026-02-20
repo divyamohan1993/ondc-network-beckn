@@ -1,0 +1,47 @@
+# Allow simulation namespace pods to reach core services and infrastructure
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-simulation
+  namespace: ondc-simulation
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # From ondc namespace (admin panel, orchestrator)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              ondc.io/tier: application
+  egress:
+    # To core services
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              ondc.io/tier: application
+    # To infrastructure
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              ondc.io/tier: infrastructure
+      ports:
+        - port: 5432
+          protocol: TCP
+        - port: 6379
+          protocol: TCP
+    # DNS
+    - to: []
+      ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # HTTPS outbound
+    - to: []
+      ports:
+        - port: 443
+          protocol: TCP
+        - port: 80
+          protocol: TCP

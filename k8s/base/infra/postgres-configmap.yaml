@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: ondc-infra
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: ondc
+data:
+  POSTGRES_DB: "ondc"
+  POSTGRES_USER: "ondc_admin"

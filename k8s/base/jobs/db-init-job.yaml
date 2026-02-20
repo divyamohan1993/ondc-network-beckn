@@ -1,0 +1,60 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: db-init
+  namespace: ondc-infra
+  labels:
+    app: db-init
+    app.kubernetes.io/part-of: ondc
+spec:
+  backoffLimit: 5
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels:
+        app: db-init
+    spec:
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:17-alpine
+          command:
+            - sh
+            - -c
+            - |
+              until pg_isready -h postgres.ondc-infra.svc.cluster.local -U ondc_admin -d ondc; do
+                echo "waiting for postgres..."
+                sleep 2
+              done
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: POSTGRES_PASSWORD
+      containers:
+        - name: db-init
+          image: postgres:17-alpine
+          command:
+            - psql
+            - -h
+            - postgres.ondc-infra.svc.cluster.local
+            - -U
+            - ondc_admin
+            - -d
+            - ondc
+            - -f
+            - /scripts/init.sql
+          env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: infra-secrets
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: init-sql
+              mountPath: /scripts
+      volumes:
+        - name: init-sql
+          configMap:
+            name: db-init-sql
+      restartPolicy: OnFailure
