@@ -1,11 +1,21 @@
 import { createLogger } from "@ondc/shared";
-import {
-  listContainers,
-  inspectContainer,
-  getContainerStats,
-  type ContainerInfo,
-  type ContainerStats,
-} from "./docker-client.js";
+
+// ---------------------------------------------------------------------------
+// Runtime mode detection — Docker vs Kubernetes
+// ---------------------------------------------------------------------------
+
+const isK8sMode =
+  process.env["RUNTIME_MODE"] === "k8s" ||
+  !!process.env["KUBERNETES_SERVICE_HOST"];
+
+// Dynamically import the correct container client based on runtime mode
+const clientModule = isK8sMode
+  ? await import("./k8s-client.js")
+  : await import("./docker-client.js");
+
+const { listContainers, inspectContainer, getContainerStats } = clientModule;
+type ContainerInfo = Awaited<ReturnType<typeof listContainers>>[number];
+type ContainerStats = Awaited<ReturnType<typeof getContainerStats>>;
 
 const logger = createLogger("agent-registry");
 

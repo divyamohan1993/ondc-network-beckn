@@ -3,15 +3,28 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { createLogger } from "@ondc/shared";
 import type { AgentRegistry } from "../services/agent-registry.js";
 import type { WsHub } from "../services/ws-hub.js";
-import {
+import { verifyAuth } from "../middleware/auth.js";
+
+// ---------------------------------------------------------------------------
+// Runtime mode detection — Docker vs Kubernetes
+// ---------------------------------------------------------------------------
+
+const isK8sMode =
+  process.env["RUNTIME_MODE"] === "k8s" ||
+  !!process.env["KUBERNETES_SERVICE_HOST"];
+
+const clientModule = isK8sMode
+  ? await import("../services/k8s-client.js")
+  : await import("../services/docker-client.js");
+
+const {
   startContainer,
   stopContainer,
   removeContainer,
   pruneContainers,
   pruneVolumes,
   execInContainer,
-} from "../services/docker-client.js";
-import { verifyAuth } from "../middleware/auth.js";
+} = clientModule;
 
 const logger = createLogger("teardown-routes");
 
