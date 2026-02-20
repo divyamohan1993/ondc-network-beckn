@@ -8,12 +8,16 @@
 # Usage:
 #   sudo bash autoconfig.sh [--production] [--domain <domain>] [--admin-email <email>]
 #                           [--admin-password <password>] [--no-seed]
+#                           [--docker|--k8s|--vm] [--gke-project <p>] [--gke-cluster <c>]
+#                           [--gke-zone <z>] [--repo <url>] [--deploy-dir <path>]
 #
 # Examples:
 #   sudo bash autoconfig.sh
 #   sudo bash autoconfig.sh --production --domain ondc.dmj.one
 #   sudo bash autoconfig.sh --admin-email admin@example.com --admin-password s3cret
 #   sudo bash autoconfig.sh --no-seed
+#   sudo bash autoconfig.sh --k8s --gke-project my-proj --gke-cluster ondc --gke-zone us-central1-a
+#   sudo bash autoconfig.sh --deploy-dir /srv/ondc --repo https://github.com/org/repo.git
 # =============================================================================
 
 set -euo pipefail
@@ -42,6 +46,12 @@ DOMAIN="ondc.dmj.one"
 ADMIN_EMAIL="admin@ondc.dmj.one"
 ADMIN_PASSWORD=""
 NO_SEED=false
+DEPLOY_MODE="docker"
+GKE_PROJECT=""
+GKE_CLUSTER=""
+GKE_ZONE=""
+REPO_URL="https://github.com/divyamohan1993/ondc-network-beckn.git"
+DEPLOY_DIR="/opt/ondc"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -65,6 +75,38 @@ while [[ $# -gt 0 ]]; do
       NO_SEED=true
       shift
       ;;
+    --k8s)
+      DEPLOY_MODE="k8s"
+      shift
+      ;;
+    --docker)
+      DEPLOY_MODE="docker"
+      shift
+      ;;
+    --vm)
+      DEPLOY_MODE="vm"
+      shift
+      ;;
+    --gke-project)
+      GKE_PROJECT="$2"
+      shift 2
+      ;;
+    --gke-cluster)
+      GKE_CLUSTER="$2"
+      shift 2
+      ;;
+    --gke-zone)
+      GKE_ZONE="$2"
+      shift 2
+      ;;
+    --repo)
+      REPO_URL="$2"
+      shift 2
+      ;;
+    --deploy-dir)
+      DEPLOY_DIR="$2"
+      shift 2
+      ;;
     -h|--help)
       echo "Usage: sudo bash autoconfig.sh [OPTIONS]"
       echo ""
@@ -74,6 +116,21 @@ while [[ $# -gt 0 ]]; do
       echo "  --admin-email <email>    Admin email (default: admin@ondc.dmj.one)"
       echo "  --admin-password <pass>  Admin password (auto-generated if not provided)"
       echo "  --no-seed                Skip database seeding (empty database)"
+      echo ""
+      echo "Deployment mode:"
+      echo "  --docker                 Deploy with Docker Compose (default)"
+      echo "  --k8s                    Deploy to Kubernetes (delegates to autoconfig-k8s.sh)"
+      echo "  --vm                     Deploy directly on VM (no containers)"
+      echo ""
+      echo "Kubernetes / GKE options (used with --k8s):"
+      echo "  --gke-project <project>  GCP project ID for GKE deployment"
+      echo "  --gke-cluster <name>     GKE cluster name"
+      echo "  --gke-zone <zone>        GKE zone (e.g. us-central1-a)"
+      echo ""
+      echo "Repository options:"
+      echo "  --repo <url>             Git repo URL (default: github.com/divyamohan1993/ondc-network-beckn)"
+      echo "  --deploy-dir <path>      Clone/pull repo to this directory (default: /opt/ondc)"
+      echo ""
       echo "  -h, --help               Show this help message"
       exit 0
       ;;
@@ -91,7 +148,7 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-TOTAL_STEPS=17
+TOTAL_STEPS=18
 CURRENT_STEP=0
 step() {
   CURRENT_STEP=$((CURRENT_STEP + 1))
@@ -99,6 +156,28 @@ step() {
   echo -e "${BOLD}${BLUE}[${CURRENT_STEP}/${TOTAL_STEPS}] $1${NC}"
   echo -e "${BLUE}$(printf '%.0s─' $(seq 1 60))${NC}"
 }
+
+# =============================================================================
+# Step 0: Repo management — clone or pull the project if DEPLOY_DIR is set
+# =============================================================================
+if [ -f "./autoconfig.sh" ]; then
+  step "Repo management (skipped — already in project directory)..."
+  log_success "  Running from project root: $(pwd)"
+else
+  step "Repo management..."
+  if [ -d "${DEPLOY_DIR}/.git" ]; then
+    echo "  Pulling latest changes into ${DEPLOY_DIR}..."
+    git -C "$DEPLOY_DIR" pull --quiet
+    log_success "  Repository updated: ${DEPLOY_DIR}"
+  else
+    echo "  Cloning ${REPO_URL} into ${DEPLOY_DIR}..."
+    git clone "$REPO_URL" "$DEPLOY_DIR" --quiet
+    log_success "  Repository cloned: ${DEPLOY_DIR}"
+  fi
+  cd "$DEPLOY_DIR"
+  SCRIPT_DIR="$DEPLOY_DIR"
+  log_success "  Working directory: $(pwd)"
+fi
 
 # =============================================================================
 # Step 1: Detect OS, check minimum specs
@@ -413,6 +492,30 @@ if [ -f nginx/nginx.conf.template ]; then
   log_success "  nginx/nginx.conf generated from template with domain: ${DOMAIN}"
 else
   log_warn "  nginx/nginx.conf.template not found. Using existing nginx.conf if available."
+fi
+
+# =============================================================================
+# Mode branching: delegate to Kubernetes if --k8s was specified
+# =============================================================================
+if [ "$DEPLOY_MODE" = "k8s" ]; then
+  step "Delegating to Kubernetes deployment..."
+
+  export POSTGRES_PASSWORD REDIS_PASSWORD RABBITMQ_PASSWORD NEXTAUTH_SECRET \
+         INTERNAL_API_KEY VAULT_MASTER_KEY VAULT_TOKEN_SECRET \
+         REGISTRY_SIGNING_PUBLIC_KEY REGISTRY_SIGNING_PRIVATE_KEY \
+         GATEWAY_SIGNING_PUBLIC_KEY GATEWAY_SIGNING_PRIVATE_KEY \
+         BAP_SIGNING_PUBLIC_KEY BAP_SIGNING_PRIVATE_KEY \
+         BPP_SIGNING_PUBLIC_KEY BPP_SIGNING_PRIVATE_KEY \
+         ADMIN_EMAIL ADMIN_PASSWORD DOMAIN PRODUCTION
+
+  K8S_ARGS=""
+  [ -n "${GKE_PROJECT:-}" ] && K8S_ARGS+=" --gke-project $GKE_PROJECT"
+  [ -n "${GKE_CLUSTER:-}" ] && K8S_ARGS+=" --gke-cluster $GKE_CLUSTER"
+  [ -n "${GKE_ZONE:-}" ] && K8S_ARGS+=" --gke-zone $GKE_ZONE"
+  [ "$PRODUCTION" = true ] || K8S_ARGS+=" --dev"
+
+  log_info "  Handing off to autoconfig-k8s.sh${K8S_ARGS:+ with args:$K8S_ARGS}"
+  exec bash "${SCRIPT_DIR}/autoconfig-k8s.sh" $K8S_ARGS
 fi
 
 # =============================================================================
