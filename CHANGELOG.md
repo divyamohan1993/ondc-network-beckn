@@ -4,6 +4,48 @@ All notable changes to the [dmj.one](https://dmj.one) ONDC Beckn Network platfor
 
 ---
 
+## [1.1.0] — 2025-02-20
+
+### CI/CD Pipeline
+
+- **GitHub Actions CI** — Automated build and test on every push/PR to main (Node.js 22, pnpm from `packageManager` field)
+- **Docker Build & Push** — 12-service parallel matrix build with smart change detection via `dorny/paths-filter`
+- **GitHub Container Registry** — Pre-built images pushed with SHA, branch, semver, and `:latest` tags
+- **Docker layer caching** via GitHub Actions cache for fast rebuilds
+
+### Automatic Deployment
+
+- **Watchtower auto-updater** — Polls GHCR every 5 minutes, pulls new images, rolling restart with zero downtime
+- **`docker-compose.deploy.yml`** — Deployment overlay with GHCR image references and Watchtower configuration
+- **`scripts/setup-server.sh`** — One-command server provisioning: installs Docker, clones repo, generates secrets, starts services
+- **`scripts/deploy.sh`** — Manual deployment script with health check verification (120s timeout)
+- **systemd config sync timer** — Automatically syncs compose files, nginx.conf, and DB schema from git every 10 minutes
+- **Watchtower scoping** — Only manages ONDC containers via `com.centurylinklabs.watchtower.scope` labels
+
+### Build System Upgrades
+
+- **Node.js 22** — Upgraded from Node.js 20 LTS
+- **TypeScript 5.9** — Upgraded from 5.4
+- **Next.js 15** — Upgraded from 14 (admin dashboard and docs portal)
+- **Tailwind CSS v4** — Upgraded from v3 (new CSS-first configuration)
+- **Fastify 5** — Upgraded backend framework
+- **@noble/curves v2** — Updated cryptographic library with new API
+- **Drizzle ORM** — Version bump with updated type system
+- **`DOCKER_BUILD=1`** environment variable — Conditional `output: 'standalone'` in Next.js builds for Docker compatibility
+
+### Build Fixes
+
+- Fixed `@noble/curves` v2 import paths and API renames
+- Fixed IoRedis CJS/ESM interop (default → named imports)
+- Fixed amqplib `Connection` → `ChannelModel` type updates
+- Fixed Tailwind CSS v4 `@apply` directive migration
+- Fixed Next.js 15 async `searchParams` handling
+- Fixed JSONB `unknown` type rendering in React components
+- Fixed bcrypt native module build in Docker
+- Fixed Windows symlink permissions with `DOCKER_BUILD=1` conditional
+
+---
+
 ## [1.0.0] — 2025-02-19
 
 ### The Beginning

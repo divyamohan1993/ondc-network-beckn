@@ -14,7 +14,7 @@ cd ondc-network-beckn
 ### 2. Install Dependencies
 
 ```bash
-# Requires Node.js 20 and pnpm 9.1.0+
+# Requires Node.js 22 and pnpm 10+
 corepack enable
 pnpm install
 ```
@@ -73,6 +73,16 @@ refactor(bap): extract order state machine to shared package
 5. Write a clear PR description explaining **what** and **why**
 6. Link related issues
 
+### CI Pipeline
+
+Every push to `main` and every PR triggers:
+
+- **Build** — Turborepo builds all packages in dependency order
+- **Test** — Vitest runs all test suites
+- **Docker Build** — Changed services are built and pushed to GHCR (on merge to `main`)
+
+CI uses the same Node.js and pnpm versions defined in `package.json` (`packageManager` field). If CI fails, check locally with `pnpm build && pnpm test`.
+
 ## Project Structure
 
 Understanding where to make changes:
@@ -88,9 +98,10 @@ Understanding where to make changes:
 | BAP/BPP adapters | `packages/bap/src/` or `packages/bpp/src/` |
 | Admin dashboard | `packages/admin/src/` |
 | Agent services | `packages/<agent>/src/` |
-| Docker config | `docker-compose.yml` / Dockerfiles |
+| Docker config | `docker-compose.yml` / `docker-compose.prod.yml` / `docker-compose.deploy.yml` / Dockerfiles |
 | Nginx routing | `nginx/nginx.conf` |
-| Deployment scripts | `autoconfig.sh`, `simulate.sh`, `teardown.sh` |
+| CI/CD workflows | `.github/workflows/ci.yml`, `.github/workflows/docker.yml` |
+| Deployment scripts | `autoconfig.sh`, `simulate.sh`, `teardown.sh`, `scripts/setup-server.sh`, `scripts/deploy.sh` |
 
 ## Code Style
 

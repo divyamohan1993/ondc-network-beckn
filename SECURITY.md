@@ -66,3 +66,6 @@ This project implements multiple layers of security:
 6. **Monitor alerts** — Review Health Monitor alerts regularly
 7. **Rotate keys** — The platform supports automatic rotation; verify it's enabled
 8. **Keep Docker updated** — Patch container vulnerabilities promptly
+9. **Use CI/CD pipeline** — All code changes go through GitHub Actions CI before deployment
+10. **Watchtower scoping** — Auto-updater only manages ONDC containers via scope labels
+11. **Use `setup-server.sh`** — Server provisioning generates unique secrets per deployment

@@ -320,7 +320,7 @@ export default function HomePage() {
                     <p className="text-xs text-gray-500 mt-1">
                       Dashboard &amp; governance
                     </p>
-                    <code className="text-xs text-amber-600 mt-2 block">:3010</code>
+                    <code className="text-xs text-amber-600 mt-2 block">:3003</code>
                   </div>
                 </div>
 
@@ -336,7 +336,7 @@ export default function HomePage() {
                     <p className="text-xs text-gray-500 mt-1">
                       Buyer Application Platform
                     </p>
-                    <code className="text-xs text-blue-600 mt-2 block">:3003</code>
+                    <code className="text-xs text-blue-600 mt-2 block">:3004</code>
                   </div>
 
                   {/* BPP */}
@@ -350,7 +350,7 @@ export default function HomePage() {
                     <p className="text-xs text-gray-500 mt-1">
                       Seller Application Platform
                     </p>
-                    <code className="text-xs text-emerald-600 mt-2 block">:3004</code>
+                    <code className="text-xs text-emerald-600 mt-2 block">:3005</code>
                   </div>
 
                   {/* Docs */}
@@ -461,13 +461,13 @@ export default function HomePage() {
                   &#10003; Gateway ............ running on :3002
                 </div>
                 <div className="text-cyan-400">
-                  &#10003; BAP ................ running on :3003
+                  &#10003; BAP ................ running on :3004
                 </div>
                 <div className="text-cyan-400">
-                  &#10003; BPP ................ running on :3004
+                  &#10003; BPP ................ running on :3005
                 </div>
                 <div className="text-cyan-400">
-                  &#10003; Admin Dashboard .... running on :3010
+                  &#10003; Admin Dashboard .... running on :3003
                 </div>
                 <div className="text-cyan-400">
                   &#10003; Documentation ...... running on :3000

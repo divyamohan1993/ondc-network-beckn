@@ -24,7 +24,7 @@ export default function OnboardingPage() {
         <div>
           <p className="text-sm text-blue-800 font-semibold mb-1">Prerequisites</p>
           <p className="text-sm text-blue-700 mb-0">
-            You need Node.js 18+ installed. The platform should already be running
+            You need Node.js 22+ installed. The platform should already be running
             (via <code className="code-inline">sudo bash autoconfig.sh</code>).
           </p>
         </div>

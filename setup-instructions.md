@@ -46,9 +46,9 @@ That's it. You now have a fully running Beckn network.
 | CPU | 2 cores | 4 cores |
 | RAM | 4 GB | 8 GB |
 | Disk | 20 GB | 50 GB |
-| Ports | 80, 3000-3010, 5432, 5672, 6379 | Same |
+| Ports | 80, 3000-3011, 5432, 5672, 6379 | Same |
 
-The `autoconfig.sh` script installs everything else: Docker, Node.js, pnpm.
+The `autoconfig.sh` script installs everything else: Docker, Node.js 22, pnpm.
 
 ---
 
@@ -510,6 +510,37 @@ sudo bash teardown.sh [flags]
 | `--full` | Delete everything: containers, volumes, images |
 | `-y` / `--yes` | Skip confirmation prompts |
 
+### setup-server.sh
+
+```bash
+sudo bash scripts/setup-server.sh [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--dir <path>` | Deployment directory (default: `/opt/ondc`) |
+| `--domain <domain>` | Set base domain |
+| `--admin-email <email>` | Admin email |
+| `--ghcr-user <user>` | GitHub Container Registry username |
+| `--ghcr-token <pat>` | GitHub Personal Access Token for GHCR |
+| `--production` | Enable production mode |
+| `--repo <url>` | Custom repository URL |
+
+One-command server provisioning — installs Docker, clones repo, generates secrets, pulls pre-built images from GHCR, and sets up Watchtower for automatic updates.
+
+### deploy.sh
+
+```bash
+bash scripts/deploy.sh [flags]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--tag <tag>` | Image tag to deploy (default: `latest`) |
+| `--dir <path>` | Deployment directory (default: `/opt/ondc`) |
+
+Manual deployment script — pulls latest config from git, pulls new images, restarts services, and waits for health checks.
+
 ---
 
 ## Troubleshooting
@@ -622,19 +653,20 @@ sudo bash autoconfig.sh
 | Layer | Technology |
 |-------|-----------|
 | Language | TypeScript (strict) |
-| Runtime | Node.js 20 LTS |
+| Runtime | Node.js 22 LTS |
 | Monorepo | Turborepo + pnpm workspaces |
 | Protocol Services | Fastify |
-| Admin Dashboard | Next.js 14 (App Router) |
-| Docs Portal | Next.js 14 |
+| Admin Dashboard | Next.js 15 (App Router) |
+| Docs Portal | Next.js 15 |
 | Database | PostgreSQL 16 |
 | ORM | Drizzle ORM |
 | Cache | Redis 7 |
 | Message Queue | RabbitMQ 3.13 |
-| Crypto | @noble/ed25519 + blakejs |
+| Crypto | @noble/curves + blakejs |
 | Auth | NextAuth.js |
 | Reverse Proxy | Nginx |
 | Containers | Docker + Docker Compose |
+| CI/CD | GitHub Actions + GHCR + Watchtower |
 | SSL | Cloudflare (proxy mode) |
 
 ---

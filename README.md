@@ -19,11 +19,13 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/divyamohan1993/ondc-network-beckn/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/divyamohan1993/ondc-network-beckn/ci.yml?branch=main&style=flat-square&label=CI" alt="CI"/></a>
+  <a href="https://github.com/divyamohan1993/ondc-network-beckn/actions/workflows/docker.yml"><img src="https://img.shields.io/github/actions/workflow/status/divyamohan1993/ondc-network-beckn/docker.yml?branch=main&style=flat-square&label=Docker%20Build" alt="Docker Build"/></a>
   <img src="https://img.shields.io/badge/Beckn_Protocol-1.1.0-blue?style=flat-square" alt="Beckn 1.1.0"/>
-  <img src="https://img.shields.io/badge/TypeScript-5.4-3178c6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
+  <img src="https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
   <img src="https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker"/>
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="MIT License"/>
-  <img src="https://img.shields.io/badge/Node.js-20_LTS-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node 20"/>
+  <img src="https://img.shields.io/badge/Node.js-22_LTS-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node 22"/>
 </p>
 
 ---
@@ -56,7 +58,7 @@ That's it. From a blank Ubuntu VM to a fully operational ONDC network — regist
 |-------|----------|-------------|
 | **Protocol Core** | Registry, Gateway, BAP, BPP | Full Beckn 1.1.0 — subscribe, search, select, init, confirm, track, cancel, settle |
 | **Infrastructure** | PostgreSQL, Redis, RabbitMQ | Battle-tested data layer with health checks and persistence |
-| **Control Plane** | Admin Dashboard, Docs Portal | Next.js 14 dashboard with real-time monitoring and governance |
+| **Control Plane** | Admin Dashboard, Docs Portal | Next.js 15 dashboard with real-time monitoring and governance |
 | **Security** | Vault, Nginx | AES-256-GCM encrypted secrets, Ed25519 signatures, rate limiting |
 | **Observability** | Health Monitor, Log Aggregator, Orchestrator | 15-second health checks, centralized logs, Docker lifecycle management |
 | **Testing** | Mock Server, Simulation Engine | Generate thousands of realistic order flows on demand |
@@ -117,7 +119,15 @@ Production mode enables:
 - Automatic restart policies
 - Simulation services disabled
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for the complete production guide.
+### One-Command Server Provisioning
+
+Deploy to any fresh Ubuntu server with a single command:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/divyamohan1993/ondc-network-beckn/main/scripts/setup-server.sh | sudo bash
+```
+
+This installs Docker, clones the repo, generates secrets, pulls pre-built images from GHCR, and sets up automatic updates via [Watchtower](https://containrrr.dev/watchtower/). See [DEPLOYMENT.md](DEPLOYMENT.md) for the complete production guide.
 
 ---
 
@@ -260,6 +270,7 @@ ondc-network-beckn/
 ├── tests/                   # Integration & E2E tests
 ├── docker-compose.yml       # Development orchestration
 ├── docker-compose.prod.yml  # Production overrides
+├── docker-compose.deploy.yml # GHCR images + Watchtower auto-update
 ├── autoconfig.sh            # Zero-touch deployment (953 lines)
 ├── simulate.sh              # Test data generation
 ├── teardown.sh              # Graceful shutdown
@@ -272,11 +283,11 @@ ondc-network-beckn/
 
 | Category | Technology |
 |----------|-----------|
-| **Language** | TypeScript 5.4 (strict mode, ESM) |
-| **Runtime** | Node.js 20 LTS |
+| **Language** | TypeScript 5.9 (strict mode, ESM) |
+| **Runtime** | Node.js 22 LTS |
 | **Monorepo** | pnpm Workspaces + Turborepo |
-| **Backend** | Fastify |
-| **Frontend** | Next.js 14 (App Router) + Tailwind CSS |
+| **Backend** | Fastify 5 |
+| **Frontend** | Next.js 15 (App Router) + Tailwind CSS v4 |
 | **Database** | PostgreSQL 16 + Drizzle ORM |
 | **Cache** | Redis 7 |
 | **Message Queue** | RabbitMQ 3.13 |
@@ -285,6 +296,7 @@ ondc-network-beckn/
 | **Signing** | Ed25519 (Beckn auth headers) |
 | **Hashing** | BLAKE-512 (request digest) |
 | **Containers** | Docker with multi-stage builds |
+| **CI/CD** | GitHub Actions + GHCR + Watchtower auto-deploy |
 | **Proxy** | Nginx with rate limiting + WebSocket |
 | **Testing** | Vitest + V8 coverage |
 

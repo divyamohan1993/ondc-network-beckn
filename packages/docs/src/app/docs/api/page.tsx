@@ -91,8 +91,8 @@ export default function ApiReferencePage() {
         <ul className="space-y-1 mb-0">
           <li><a href="#registry">Registry</a> — <code className="code-inline">:3001</code></li>
           <li><a href="#gateway">Gateway</a> — <code className="code-inline">:3002</code></li>
-          <li><a href="#bap">BAP (Buyer Application Platform)</a> — <code className="code-inline">:3003</code></li>
-          <li><a href="#bpp">BPP (Seller Application Platform)</a> — <code className="code-inline">:3004</code></li>
+          <li><a href="#bap">BAP (Buyer Application Platform)</a> — <code className="code-inline">:3004</code></li>
+          <li><a href="#bpp">BPP (Seller Application Platform)</a> — <code className="code-inline">:3005</code></li>
         </ul>
       </div>
 
@@ -263,7 +263,7 @@ export default function ApiReferencePage() {
       <p>
         The BAP service provides a simplified client API that handles signing
         and context management. It runs on port{' '}
-        <code className="code-inline">3003</code>.
+        <code className="code-inline">3004</code>.
       </p>
 
       <h3>Simplified Client API</h3>
@@ -433,7 +433,7 @@ export default function ApiReferencePage() {
       <p>
         The BPP service handles seller-side operations including catalog
         management and order fulfillment. It runs on port{' '}
-        <code className="code-inline">3004</code>.
+        <code className="code-inline">3005</code>.
       </p>
 
       <Endpoint

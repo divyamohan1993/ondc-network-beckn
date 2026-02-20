@@ -36,8 +36,8 @@ Complete guide to deploying the ONDC Beckn Network in production.
 |----------|---------|-------|
 | OS | Ubuntu 22.04+ | Any Linux with Docker works |
 | Docker | 24.0+ | With Compose V2 |
-| Node.js | 20 LTS | Only needed for local dev |
-| pnpm | 9.1.0+ | Only needed for local dev |
+| Node.js | 22 LTS | Only needed for local dev |
+| pnpm | 10+ | Only needed for local dev |
 | Git | 2.30+ | For cloning the repo |
 
 ---
@@ -96,7 +96,149 @@ sudo bash autoconfig.sh \
 | `--admin-email <email>` | `admin@ondc.dmj.one` | Admin login email |
 | `--admin-password <pass>` | Auto-generated | Admin password |
 | `--no-seed` | `false` | Skip database seeding |
+| `--k8s` | — | Deploy via Kubernetes instead of Docker Compose |
+| `--docker` | — | Deploy via Docker Compose (default) |
+| `--vm` | — | Deploy directly on the VM (no containers) |
+| `--gke-project <id>` | — | GCP project ID (creates GKE cluster) |
+| `--gke-cluster <name>` | `ondc-cluster` | GKE cluster name |
+| `--gke-zone <zone>` | `us-central1-a` | GKE zone |
+| `--repo <url>` | GitHub repo | Override repository URL |
+| `--deploy-dir <path>` | `/opt/ondc` | Override deployment directory |
 | `-h, --help` | — | Show help |
+
+---
+
+## Kubernetes Deployment
+
+### Quick Deploy to GKE
+
+```bash
+# One-command deployment on a Google Cloud VM
+sudo bash autoconfig.sh \
+  --k8s \
+  --production \
+  --domain ondc.dmj.one \
+  --gke-project my-gcp-project \
+  --gke-zone us-central1-a
+```
+
+This will:
+1. Install kubectl, Helm, and gcloud CLI
+2. Create a GKE cluster (3 nodes, e2-standard-4, autoscaling 2-10)
+3. Install nginx-ingress-controller and cert-manager
+4. Deploy all 16 services with proper sequencing
+5. Initialize database, seed vault secrets, and verify health
+
+### Standalone K8s Script
+
+If you already have secrets generated (e.g., from a previous `autoconfig.sh` run):
+
+```bash
+# Export secrets from .env
+set -a && source .env && set +a
+
+# Run K8s deployment directly
+bash autoconfig-k8s.sh --gke-project my-project --gke-zone us-central1-a
+```
+
+### Local Development (minikube/kind)
+
+```bash
+# Start a local cluster
+kind create cluster --name ondc
+
+# Deploy in dev mode (lower resources, simulation services included)
+sudo bash autoconfig.sh --k8s --dev
+```
+
+### K8s Architecture
+
+```
+Namespace: ondc-infra         Namespace: ondc                Namespace: ondc-simulation
+┌──────────────────┐          ┌──────────────────────┐       ┌─────────────────────┐
+│ PostgreSQL (SS)  │◄────────►│ vault (Deploy)       │       │ simulation-engine   │
+│ Redis (SS)       │◄────────►│ registry (Deploy x2) │       │ mock-server         │
+│ RabbitMQ (SS)    │◄────────►│ gateway (Deploy x2)  │       └─────────────────────┘
+└──────────────────┘          │ bap (Deploy x2)      │             (dev only)
+                              │ bpp (Deploy x2)      │
+                              │ admin (Deploy)       │
+                              │ docs (Deploy)        │
+                              │ orchestrator (Deploy)│
+                              │ health-monitor       │
+                              │ log-aggregator       │
+                              └──────────────────────┘
+                                       ▲
+                              ┌────────┴────────┐
+                              │  nginx-ingress  │
+                              │  cert-manager   │
+                              └─────────────────┘
+```
+
+**Key differences from Docker Compose:**
+- Infrastructure runs as **StatefulSets** with PVCs
+- Application services run as **Deployments** with HPA (auto-scaling)
+- The orchestrator uses **K8s API** (ServiceAccount + RBAC) instead of Docker socket
+- Ingress replaces nginx reverse proxy
+- cert-manager handles TLS instead of manual Certbot
+
+### K8s Manifest Structure
+
+```
+k8s/
+├── base/                    # Base manifests (shared)
+│   ├── infra/              # StatefulSets: postgres, redis, rabbitmq
+│   ├── core/               # Deployments: vault, registry, gateway, bap, bpp, admin, docs
+│   ├── agents/             # Deployments: orchestrator (+ RBAC), health-monitor, log-aggregator
+│   ├── config/             # ConfigMaps: platform-config, service-urls
+│   ├── secrets/            # Secret templates (values injected by generate-secrets.sh)
+│   ├── jobs/               # db-init, db-seed, vault-seed Jobs
+│   ├── ingress/            # Ingress rules + cert-manager issuer
+│   ├── network-policies/   # Default deny + allow rules
+│   └── hpa/                # HPA for registry, gateway, bap, bpp
+└── overlays/
+    ├── dev/                # Development: 1 replica, lower resources, simulation services
+    └── prod/               # Production: higher replicas, PDBs, larger PVCs
+```
+
+### K8s Rolling Updates
+
+```bash
+# Update all services to a specific image tag
+bash scripts/deploy.sh k8s --tag v1.2.3
+
+# Or use kubectl directly
+kubectl set image deployment/registry registry=ghcr.io/divyamohan1993/ondc-registry:v1.2.3 -n ondc
+kubectl rollout status deployment/registry -n ondc
+```
+
+### K8s Teardown
+
+```bash
+# Soft: scale deployments to 0 (keep data)
+bash scripts/k8s-helpers/teardown-k8s.sh soft
+
+# Hard: delete all deployments and statefulsets
+bash scripts/k8s-helpers/teardown-k8s.sh hard
+
+# Full: delete all namespaces (DESTROYS EVERYTHING)
+bash scripts/k8s-helpers/teardown-k8s.sh full -y
+
+# Reset: wipe DB, re-run init.sql, restart services
+bash scripts/k8s-helpers/teardown-k8s.sh reset
+```
+
+### CI/CD for K8s
+
+The `.github/workflows/k8s-deploy.yml` workflow supports manual dispatch:
+
+```bash
+# Via GitHub CLI
+gh workflow run k8s-deploy.yml -f environment=staging -f image_tag=latest
+gh workflow run k8s-deploy.yml -f environment=production -f image_tag=v1.2.3
+```
+
+Required GitHub secrets: `GKE_SA_KEY` (GCP service account JSON key)
+Required GitHub vars: `GKE_CLUSTER_NAME`, `GKE_ZONE`
 
 ---
 
@@ -363,6 +505,69 @@ curl -s http://localhost:3002/health  # Gateway
 curl -s http://localhost:3004/health  # BAP
 curl -s http://localhost:3005/health  # BPP
 ```
+
+---
+
+## CI/CD Pipeline
+
+### Automatic Builds (GitHub Actions)
+
+Every push to `main` triggers two workflows:
+
+1. **CI** (`.github/workflows/ci.yml`) — Installs dependencies, builds all packages, runs tests
+2. **Docker Build & Push** (`.github/workflows/docker.yml`) — Builds Docker images for changed services and pushes to GitHub Container Registry (GHCR)
+
+Only services with actual code changes are rebuilt, thanks to smart change detection via `dorny/paths-filter`. Changes to the shared package trigger rebuilds for all dependent services.
+
+Images are tagged with: commit SHA, branch name, semver (for tags), and `:latest` (for main branch).
+
+### Automatic Deployment (Watchtower)
+
+Servers provisioned with `setup-server.sh` include [Watchtower](https://containrrr.dev/watchtower/), which:
+
+- Polls GHCR every 5 minutes for new `:latest` images
+- Pulls updated images and restarts containers with rolling restart
+- Scoped to only manage ONDC containers (via `com.centurylinklabs.watchtower.scope: ondc`)
+- Cleans up old images automatically
+
+**The complete deployment flow:**
+
+```
+git push → GitHub Actions builds images → pushes to GHCR → Watchtower detects new images → pulls & restarts
+```
+
+No SSH keys, no deployment secrets, no manual intervention needed.
+
+### Server Provisioning
+
+Set up any fresh Ubuntu server with one command:
+
+```bash
+# Option A: Pipe from GitHub
+curl -fsSL https://raw.githubusercontent.com/divyamohan1993/ondc-network-beckn/main/scripts/setup-server.sh | sudo bash
+
+# Option B: After cloning
+sudo bash scripts/setup-server.sh --domain ondc.dmj.one --production
+```
+
+The `setup-server.sh` script:
+1. Installs Docker Engine + Compose plugin
+2. Clones the repository to `/opt/ondc`
+3. Runs `autoconfig.sh` to generate `.env` with all secrets
+4. Logs into GHCR (optional, for private images)
+5. Pulls pre-built images and starts all services
+6. Sets up Watchtower for automatic image updates
+7. Installs a systemd timer that syncs config from git every 10 minutes
+
+### Manual Deploy Script
+
+For immediate deployments (instead of waiting for Watchtower):
+
+```bash
+cd /opt/ondc && bash scripts/deploy.sh [--tag <image-tag>]
+```
+
+This pulls the latest compose/nginx/DB config from git, pulls new images, restarts services, waits for health checks, and prunes old images.
 
 ---
 

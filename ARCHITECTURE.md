@@ -62,8 +62,8 @@ Admin    Docs     Login  Registry Gateway BAP/BPP Vault  Orchestrator  Health
 
 | Service | Port | Framework | Key Features |
 |---------|------|-----------|-------------|
-| **Admin** | 3003 | Next.js 14 | 20+ pages — dashboard, participants, orders, vault, health, logs, simulation |
-| **Docs** | 3000 | Next.js 14 | Public documentation and landing page |
+| **Admin** | 3003 | Next.js 15 | 20+ pages — dashboard, participants, orders, vault, health, logs, simulation |
+| **Docs** | 3000 | Next.js 15 | Public documentation and landing page |
 
 ### Agent Services (5 services)
 
@@ -323,6 +323,9 @@ docker compose --profile simulation up -d
 
 # Production — persistent volumes, no simulation
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+# Server deployment — pre-built GHCR images + Watchtower auto-update
+docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.deploy.yml up -d
 ```
 
 ### Resource Limits (Production)
@@ -500,6 +503,78 @@ import { createDb, subscribers, orders, transactions } from "@ondc/shared";
 // Utilities
 import { createLogger, validateEnv, VaultClient } from "@ondc/shared";
 ```
+
+---
+
+## CI/CD Pipeline
+
+### Continuous Integration
+
+Every push to `main` and every pull request triggers the CI pipeline (`.github/workflows/ci.yml`):
+
+```
+Push/PR to main
+      │
+      ▼
+  ┌──────────┐
+  │ Checkout  │
+  └────┬──────┘
+       │
+  ┌────▼──────┐
+  │ pnpm      │  Reads version from packageManager field
+  │ install   │
+  └────┬──────┘
+       │
+  ┌────▼──────┐
+  │ pnpm      │  Turborepo builds all packages in dependency order
+  │ build     │
+  └────┬──────┘
+       │
+  ┌────▼──────┐
+  │ pnpm      │  Vitest runs all test suites
+  │ test      │
+  └──────────┘
+```
+
+### Docker Build & Push
+
+When code is pushed to `main` or a version tag is created (`.github/workflows/docker.yml`):
+
+```
+Push to main / Tag
+       │
+  ┌────▼────────┐
+  │ Detect      │  dorny/paths-filter identifies changed services
+  │ Changes     │  (including shared package dependencies)
+  └────┬────────┘
+       │
+  ┌────▼────────┐
+  │ Matrix      │  12 services build in parallel
+  │ Build       │  Only changed services are rebuilt
+  └────┬────────┘
+       │
+  ┌────▼────────┐
+  │ Push to     │  Tags: SHA, branch, semver, :latest
+  │ GHCR        │  Cached via GitHub Actions cache
+  └────┬────────┘
+       │
+  ┌────▼────────┐
+  │ Watchtower  │  Running on server, polls GHCR every 5 min
+  │ Auto-deploy │  Pulls new :latest images, rolling restart
+  └─────────────┘
+```
+
+### Deployment Overlay
+
+The three-layer compose architecture:
+
+| File | Purpose |
+|------|---------|
+| `docker-compose.yml` | Base services with `build:` directives for local development |
+| `docker-compose.prod.yml` | Production overrides: persistent volumes, restart policies, memory limits |
+| `docker-compose.deploy.yml` | Server deployment: GHCR `image:` references + Watchtower auto-updater |
+
+Server-side, a systemd timer syncs configuration (compose files, nginx.conf, DB schema) from git every 10 minutes, ensuring compose changes propagate automatically without redeploying images.
 
 ---
 
