@@ -8,7 +8,22 @@
  *
  * Reference: ONDC Buyer/Seller NP specifications
  * https://docs.google.com/document/d/1brvcltG_DagZ3kGr1ZZQk4hG4tze3zvcxmGV4NMTzr8
+ *
+ * Indian Law Compliance:
+ * - Consumer Protection Act 2019 / E-Commerce Rules 2020:
+ *     Country of origin mandatory, MRP mandatory for packaged goods,
+ *     seller disclosure required.
+ * - FSSAI Act 2006: License number mandatory for food items (RET11).
  */
+
+import {
+  validateSellerDisclosure,
+  validateProductCompliance,
+  validatePriceAgainstMrp,
+  type SellerDisclosure,
+  type ProductCompliance,
+} from "../compliance/consumer-protection.js";
+import { validateGstin } from "../compliance/gst.js";
 
 // ---------------------------------------------------------------------------
 // Validation Result Types
@@ -634,6 +649,142 @@ export function getDomainItemRules(domain: string): DomainItemRule {
 }
 
 // ---------------------------------------------------------------------------
+// Indian Law Compliance Validation
+// ---------------------------------------------------------------------------
+
+/** Domains where FSSAI license is mandatory (food items). */
+const FSSAI_REQUIRED_DOMAINS = ["ONDC:RET10", "ONDC:RET11"];
+
+/** Domains where products are typically packaged (MRP mandatory). */
+const PACKAGED_GOODS_DOMAINS = [
+  "ONDC:RET10", "ONDC:RET12", "ONDC:RET13", "ONDC:RET14",
+  "ONDC:RET15", "ONDC:RET16", "ONDC:RET17", "ONDC:RET18",
+  "ONDC:RET19", "ONDC:RET20",
+];
+
+/**
+ * Validate catalog items against Indian law requirements:
+ * - Country of origin (E-Commerce Rules 2020)
+ * - MRP for packaged goods (Legal Metrology Act 2009)
+ * - FSSAI license for food items (FSSAI Act 2006)
+ * - Seller disclosure completeness (Consumer Protection Act 2019)
+ * - GSTIN format if provided
+ * - Selling price vs MRP (Legal Metrology Act 2009)
+ */
+export function validateIndianLawCompliance(
+  domain: string,
+  provider: Record<string, unknown>,
+  items: Record<string, unknown>[],
+): CatalogValidationResult {
+  const errors: CatalogValidationError[] = [];
+  const warnings: CatalogValidationError[] = [];
+
+  // --- Seller Disclosure (E-Commerce Rules 2020 Rule 5) ---
+  const providerTags = extractTags(provider);
+  const providerDesc = provider["descriptor"] as Record<string, unknown> | undefined;
+
+  // Check GSTIN if provided
+  const gstin = (provider["gstin"] as string) ??
+    getTagValue(provider, "tax_credentials", "gstin");
+  if (gstin && !validateGstin(gstin)) {
+    errors.push({
+      field: "provider.gstin",
+      message: "Invalid GSTIN format. Must be 15 characters: 2-digit state + PAN + entity + Z + check",
+      severity: "error",
+    });
+  }
+
+  // Check FSSAI license for food domains
+  if (FSSAI_REQUIRED_DOMAINS.includes(domain)) {
+    const fssaiLicense =
+      getTagValue(provider, "fssai_license_no") ??
+      getTagValue(provider, "serviceability", "fssai_license_no") ??
+      (provider["fssai_license_no"] as string | undefined);
+    if (!fssaiLicense) {
+      errors.push({
+        field: "provider.fssai_license_no",
+        message: `FSSAI license number is mandatory for domain ${domain} (FSSAI Act 2006, Section 31)`,
+        severity: "error",
+      });
+    } else if (!/^[0-9]{14}$/.test(fssaiLicense)) {
+      warnings.push({
+        field: "provider.fssai_license_no",
+        message: "FSSAI license number should be 14 digits",
+        severity: "warning",
+      });
+    }
+  }
+
+  // --- Per-Item Compliance ---
+  const isPackagedDomain = PACKAGED_GOODS_DOMAINS.includes(domain);
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
+    const prefix = `items[${i}]`;
+
+    // Country of origin (mandatory per E-Commerce Rules 2020 Rule 6(5)(iv))
+    const countryOfOrigin =
+      getTagValue(item, "origin", "country") ??
+      getTagValue(item, "country_of_origin") ??
+      (item["country_of_origin"] as string | undefined);
+    if (!countryOfOrigin) {
+      errors.push({
+        field: `${prefix}.country_of_origin`,
+        message: "Country of origin is mandatory (E-Commerce Rules 2020, Rule 6(5)(iv))",
+        severity: "error",
+      });
+    }
+
+    // MRP for packaged goods (Legal Metrology Act 2009)
+    if (isPackagedDomain) {
+      const price = item["price"] as Record<string, unknown> | undefined;
+      const maxValue = price?.["maximum_value"] as string | undefined;
+      if (!maxValue) {
+        warnings.push({
+          field: `${prefix}.price.maximum_value`,
+          message: "MRP (maximum_value) recommended for packaged goods (Legal Metrology Act 2009)",
+          severity: "warning",
+        });
+      }
+
+      // Selling price must not exceed MRP
+      const sellingPrice = price?.["value"] as string | undefined;
+      if (sellingPrice && maxValue) {
+        const result = validatePriceAgainstMrp(
+          parseFloat(sellingPrice),
+          parseFloat(maxValue),
+        );
+        if (!result.valid && result.violation) {
+          errors.push({
+            field: `${prefix}.price`,
+            message: result.violation,
+            severity: "error",
+          });
+        }
+      }
+    }
+
+    // Manufacturer info for packaged goods
+    const manufacturer =
+      getTagValue(item, "packaged_commodities", "manufacturer_or_packer_name") ??
+      getTagValue(item, "manufacturer");
+    if (isPackagedDomain && !manufacturer) {
+      warnings.push({
+        field: `${prefix}.manufacturer`,
+        message: "Manufacturer/packer name recommended for packaged goods (Legal Metrology Act 2009)",
+        severity: "warning",
+      });
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Internal Helpers
 // ---------------------------------------------------------------------------
 
@@ -668,4 +819,49 @@ function extractTags(obj: Record<string, unknown>): Set<string> {
   }
 
   return codes;
+}
+
+/**
+ * Extract a specific tag value from an object's "tags" field.
+ * Searches through both flat and nested tag formats used in ONDC.
+ *
+ * @param obj - Object with a "tags" array
+ * @param tagCode - The tag group code to search for
+ * @param subCode - Optional sub-tag code within the tag group's list
+ * @returns The tag value if found, undefined otherwise
+ */
+function getTagValue(
+  obj: Record<string, unknown>,
+  tagCode: string,
+  subCode?: string,
+): string | undefined {
+  const tags = obj["tags"] as Array<Record<string, unknown>> | undefined;
+  if (!Array.isArray(tags)) return undefined;
+
+  for (const tag of tags) {
+    const code =
+      (tag["code"] as string) ??
+      ((tag["descriptor"] as Record<string, unknown> | undefined)?.["code"] as string);
+
+    if (code === tagCode) {
+      if (!subCode) {
+        // Return value from the tag itself
+        return (tag["value"] as string) ?? undefined;
+      }
+      // Search in the list for the sub-code
+      const list = tag["list"] as Array<Record<string, unknown>> | undefined;
+      if (Array.isArray(list)) {
+        for (const item of list) {
+          const itemCode =
+            (item["code"] as string) ??
+            ((item["descriptor"] as Record<string, unknown> | undefined)?.["code"] as string);
+          if (itemCode === subCode) {
+            return (item["value"] as string) ?? undefined;
+          }
+        }
+      }
+    }
+  }
+
+  return undefined;
 }

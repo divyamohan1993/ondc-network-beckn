@@ -5,6 +5,7 @@ import {
   buildAuthHeader,
   nack,
   transactions,
+  logisticsOrders,
   createLogger,
   validateCatalogItems,
 } from "@ondc/shared";
@@ -18,6 +19,11 @@ import {
 } from "../services/catalog.js";
 import type { StoredCatalog } from "../services/catalog.js";
 import { registerWebhook } from "../services/webhook.js";
+import {
+  selectLogistics,
+  LogisticsOrderState,
+} from "../services/logistics-client.js";
+import type { LogisticsConfig } from "../services/logistics-client.js";
 
 const logger = createLogger("bpp-provider-api");
 
@@ -213,7 +219,7 @@ export const registerProviderApi: FastifyPluginAsync = async (
       try {
         // Send on_status callback to BAP
         const callbackContext = buildContext({
-          domain: domain ?? "nic2004:52110",
+          domain: domain ?? "ONDC:RET10",
           city: city ?? "std:080",
           action: BecknCallbackAction.on_status,
           bap_id,
@@ -292,7 +298,7 @@ export const registerProviderApi: FastifyPluginAsync = async (
         // If tracking info provided, also send on_track
         if (tracking?.url) {
           const trackContext = buildContext({
-            domain: domain ?? "nic2004:52110",
+            domain: domain ?? "ONDC:RET10",
             city: city ?? "std:080",
             action: BecknCallbackAction.on_track,
             bap_id,
@@ -446,6 +452,174 @@ export const registerProviderApi: FastifyPluginAsync = async (
       });
     }
   });
+
+  // -------------------------------------------------------------------------
+  // POST /api/logistics/:orderId/select
+  // Allows a seller to manually select a logistics provider from available quotes.
+  // Used when LOGISTICS_SELECTION_STRATEGY is "manual".
+  // -------------------------------------------------------------------------
+  fastify.post<{
+    Params: { orderId: string };
+    Body: { provider_id: string; item_index?: number };
+  }>("/logistics/:orderId/select", async (request, reply) => {
+    const { orderId } = request.params;
+    const { provider_id, item_index } = request.body;
+
+    if (!orderId || !provider_id) {
+      return reply.code(400).send({
+        error: { code: "BAD_REQUEST", message: "orderId and provider_id are required.", details: [] },
+      });
+    }
+
+    try {
+      // Find the logistics order for this retail order
+      const [logOrder] = await fastify.db
+        .select()
+        .from(logisticsOrders)
+        .where(eq(logisticsOrders.retail_order_id, orderId))
+        .limit(1);
+
+      if (!logOrder) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "No logistics order found for this retail order.", details: [] },
+        });
+      }
+
+      if (logOrder.state !== LogisticsOrderState.QUOTES_RECEIVED) {
+        return reply.code(409).send({
+          error: {
+            code: "CONFLICT",
+            message: `Logistics order is in state ${logOrder.state}, not QUOTES_RECEIVED. Cannot select.`,
+            details: [],
+          },
+        });
+      }
+
+      // Retrieve cached quotes from Redis
+      const quotesRaw = await fastify.redis.get(`logistics:quotes:${logOrder.logistics_transaction_id}`);
+      if (!quotesRaw) {
+        return reply.code(410).send({
+          error: { code: "GONE", message: "Quotes have expired. Trigger a new logistics search.", details: [] },
+        });
+      }
+
+      const quotesData = JSON.parse(quotesRaw);
+      const providers: any[] = quotesData.providers ?? [];
+      const selectedProvider = providers.find((p: any) => p.id === provider_id);
+
+      if (!selectedProvider) {
+        return reply.code(404).send({
+          error: {
+            code: "NOT_FOUND",
+            message: `Provider ${provider_id} not found in available quotes.`,
+            details: [{ available_providers: providers.map((p: any) => p.id) }],
+          },
+        });
+      }
+
+      const items = selectedProvider.items ?? [];
+      const selectedItem = items[item_index ?? 0];
+      if (!selectedItem) {
+        return reply.code(404).send({
+          error: { code: "NOT_FOUND", message: "No items found for the selected provider.", details: [] },
+        });
+      }
+
+      const providerFulfillments = selectedProvider.fulfillments ?? [];
+      const fulfillment = providerFulfillments[0] ?? { type: "Delivery" };
+
+      const logisticsConfig: LogisticsConfig = {
+        gatewayUrl: process.env["LOGISTICS_GATEWAY_URL"] ?? process.env["GATEWAY_URL"] ?? "http://localhost:3002",
+        bppId: fastify.config.bppId,
+        bppUri: fastify.config.bppUri,
+        privateKey: fastify.config.privateKey,
+        uniqueKeyId: fastify.config.uniqueKeyId,
+      };
+
+      await selectLogistics(logisticsConfig, fastify.db, {
+        transactionId: logOrder.logistics_transaction_id,
+        lspBppId: quotesData.bpp_id ?? "",
+        lspBppUri: quotesData.bpp_uri ?? "",
+        providerId: provider_id,
+        items: [selectedItem],
+        fulfillment,
+      });
+
+      logger.info(
+        { orderId, providerId: provider_id, transactionId: logOrder.logistics_transaction_id },
+        "Manual logistics provider selected",
+      );
+
+      return reply.code(200).send({
+        status: "selected",
+        order_id: orderId,
+        logistics_transaction_id: logOrder.logistics_transaction_id,
+        provider_id,
+        price: selectedItem.price?.value ?? null,
+      });
+    } catch (err) {
+      logger.error({ err, orderId }, "Error in manual logistics selection");
+      return reply.code(500).send({
+        error: { code: "INTERNAL_ERROR", message: "Internal error selecting logistics provider.", details: [] },
+      });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // GET /api/logistics/:orderId/quotes
+  // Retrieve available logistics quotes for a retail order.
+  // -------------------------------------------------------------------------
+  fastify.get<{ Params: { orderId: string } }>(
+    "/logistics/:orderId/quotes",
+    async (request, reply) => {
+      const { orderId } = request.params;
+
+      try {
+        const [logOrder] = await fastify.db
+          .select()
+          .from(logisticsOrders)
+          .where(eq(logisticsOrders.retail_order_id, orderId))
+          .limit(1);
+
+        if (!logOrder) {
+          return reply.code(404).send({
+            error: { code: "NOT_FOUND", message: "No logistics order found for this retail order.", details: [] },
+          });
+        }
+
+        const quotesRaw = await fastify.redis.get(`logistics:quotes:${logOrder.logistics_transaction_id}`);
+        if (!quotesRaw) {
+          return reply.code(404).send({
+            error: { code: "NOT_FOUND", message: "No quotes available. They may have expired.", details: [] },
+          });
+        }
+
+        const quotesData = JSON.parse(quotesRaw);
+        const providers = (quotesData.providers ?? []).map((p: any) => ({
+          provider_id: p.id,
+          name: p.descriptor?.name ?? p.id,
+          items: (p.items ?? []).map((item: any, idx: number) => ({
+            index: idx,
+            name: item.descriptor?.name ?? item.id,
+            price: item.price,
+            time_to_ship: item.time?.duration ?? item["@ondc/org/time_to_ship"] ?? null,
+          })),
+        }));
+
+        return reply.code(200).send({
+          order_id: orderId,
+          logistics_transaction_id: logOrder.logistics_transaction_id,
+          state: logOrder.state,
+          providers,
+        });
+      } catch (err) {
+        logger.error({ err, orderId }, "Error retrieving logistics quotes");
+        return reply.code(500).send({
+          error: { code: "INTERNAL_ERROR", message: "Internal error retrieving logistics quotes.", details: [] },
+        });
+      }
+    },
+  );
 
   // -------------------------------------------------------------------------
   // POST /api/webhooks

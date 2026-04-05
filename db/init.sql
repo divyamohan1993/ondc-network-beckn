@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS subscribers (
   city TEXT,
   signing_public_key TEXT NOT NULL,
   encr_public_key TEXT,
+  pq_signing_public_key TEXT,
+  pq_encryption_public_key TEXT,
   unique_key_id TEXT NOT NULL,
   status subscriber_status NOT NULL DEFAULT 'INITIATED',
   valid_from TIMESTAMPTZ,
@@ -404,6 +406,129 @@ CREATE INDEX idx_subscriber_domains_domain ON subscriber_domains(domain);
 CREATE INDEX idx_subscriber_domains_domain_city ON subscriber_domains(domain, city);
 
 -- ============================================
+-- RSF 2.0 (NBBL/NOCS Settlement) Tables
+-- ============================================
+
+DO $$ BEGIN
+  CREATE TYPE settlement_basis AS ENUM ('collection', 'shipment', 'delivery', 'return_window');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE nocs_txn_status AS ENUM ('INITIATED', 'PENDING', 'SETTLED', 'FAILED', 'DISPUTED', 'REVERSED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS nbbl_registrations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subscriber_id TEXT NOT NULL UNIQUE,
+  settlement_account_no TEXT NOT NULL,
+  settlement_ifsc TEXT NOT NULL,
+  settlement_bank_name TEXT NOT NULL,
+  virtual_payment_address TEXT,
+  nocs_onboarded BOOLEAN DEFAULT FALSE,
+  settlement_agency_id TEXT,
+  registered_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS settlement_instructions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id TEXT NOT NULL,
+  collector_subscriber_id TEXT NOT NULL,
+  receiver_subscriber_id TEXT NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  currency TEXT DEFAULT 'INR',
+  settlement_basis settlement_basis NOT NULL,
+  settlement_window_start TIMESTAMPTZ,
+  settlement_due_date TIMESTAMPTZ,
+  withholding_amount DECIMAL(12,2) DEFAULT 0,
+  finder_fee_amount DECIMAL(12,2) DEFAULT 0,
+  platform_fee_amount DECIMAL(12,2) DEFAULT 0,
+  net_payable DECIMAL(12,2) NOT NULL,
+  status nocs_txn_status DEFAULT 'INITIATED',
+  settlement_reference TEXT,
+  settled_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE settlement_instructions ADD COLUMN IF NOT EXISTS signature TEXT;
+ALTER TABLE settlement_instructions ADD COLUMN IF NOT EXISTS signed_by TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_si_order_id ON settlement_instructions(order_id);
+CREATE INDEX IF NOT EXISTS idx_si_collector ON settlement_instructions(collector_subscriber_id);
+CREATE INDEX IF NOT EXISTS idx_si_receiver ON settlement_instructions(receiver_subscriber_id);
+CREATE INDEX IF NOT EXISTS idx_si_status ON settlement_instructions(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_si_order_unique ON settlement_instructions(order_id, collector_subscriber_id, receiver_subscriber_id);
+
+CREATE TABLE IF NOT EXISTS withholding_pool (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id TEXT NOT NULL,
+  collector_subscriber_id TEXT NOT NULL,
+  withheld_amount DECIMAL(12,2) NOT NULL,
+  release_date TIMESTAMPTZ NOT NULL,
+  released BOOLEAN DEFAULT FALSE,
+  released_at TIMESTAMPTZ,
+  refund_used DECIMAL(12,2) DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_wp_order_id ON withholding_pool(order_id);
+CREATE INDEX IF NOT EXISTS idx_wp_release ON withholding_pool(release_date) WHERE NOT released;
+
+-- ============================================
+-- Fulfillment State Machine (ONDC v1.2.5)
+-- ============================================
+
+DO $$ BEGIN
+  CREATE TYPE fulfillment_state AS ENUM (
+    'Pending', 'Packed', 'Agent-assigned', 'Order-picked-up',
+    'In-transit', 'At-destination-hub', 'Out-for-delivery', 'Order-delivered',
+    'Cancelled', 'RTO-Initiated', 'RTO-Delivered'
+  );
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE routing_type AS ENUM ('P2P', 'P2H2P');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS fulfillments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id TEXT NOT NULL REFERENCES orders(order_id),
+  fulfillment_id TEXT NOT NULL,
+  type TEXT DEFAULT 'Delivery',
+  routing_type routing_type DEFAULT 'P2P',
+  state fulfillment_state DEFAULT 'Pending',
+  provider_id TEXT,
+  agent_name TEXT,
+  agent_phone TEXT,
+  vehicle_registration TEXT,
+  tracking_url TEXT,
+  estimated_delivery TIMESTAMPTZ,
+  actual_delivery TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(order_id, fulfillment_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_fulfillments_order_id ON fulfillments(order_id);
+CREATE INDEX IF NOT EXISTS idx_fulfillments_state ON fulfillments(state);
+
+CREATE TABLE IF NOT EXISTS fulfillment_state_transitions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  fulfillment_id UUID NOT NULL REFERENCES fulfillments(id),
+  from_state fulfillment_state,
+  to_state fulfillment_state NOT NULL,
+  triggered_by TEXT,
+  timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_fst_fulfillment_id ON fulfillment_state_transitions(fulfillment_id);
+
+-- ============================================
 -- Seed: ONDC Official Domain Codes
 -- ============================================
 -- As per ONDC Registry: https://ondc.org/network-domains
@@ -543,3 +668,159 @@ INSERT INTO cities (code, name, state) VALUES
   -- Special: Pan-India / All Cities
   ('std:*', 'All Cities (Pan-India)', NULL)
 ON CONFLICT (code) DO NOTHING;
+
+-- ============================================
+-- IGM Escalation Timers
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS escalation_timers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  issue_id TEXT NOT NULL,
+  current_level INTEGER NOT NULL DEFAULT 1,
+  escalation_deadline TIMESTAMPTZ NOT NULL,
+  escalated BOOLEAN DEFAULT FALSE,
+  escalated_at TIMESTAMPTZ,
+  acknowledged BOOLEAN DEFAULT FALSE,
+  acknowledged_at TIMESTAMPTZ,
+  resolved BOOLEAN DEFAULT FALSE,
+  resolved_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_et_issue_id ON escalation_timers(issue_id);
+CREATE INDEX IF NOT EXISTS idx_et_deadline ON escalation_timers(escalation_deadline) WHERE NOT escalated AND NOT resolved;
+
+-- ============================================
+-- Logistics Orders (LSP Integration)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS logistics_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  retail_order_id TEXT NOT NULL REFERENCES orders(order_id),
+  logistics_transaction_id TEXT NOT NULL UNIQUE,
+  lsp_subscriber_id TEXT,
+  lsp_provider_id TEXT,
+  lsp_order_id TEXT,
+  pickup_address JSONB,
+  delivery_address JSONB,
+  package_weight DECIMAL(10,3),
+  package_dimensions JSONB,
+  estimated_pickup TIMESTAMPTZ,
+  estimated_delivery TIMESTAMPTZ,
+  actual_pickup TIMESTAMPTZ,
+  actual_delivery TIMESTAMPTZ,
+  tracking_url TEXT,
+  shipping_label_url TEXT,
+  awb_number TEXT,
+  state TEXT DEFAULT 'SEARCHING',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lo_retail_order ON logistics_orders(retail_order_id);
+CREATE INDEX IF NOT EXISTS idx_lo_lsp_order ON logistics_orders(lsp_order_id);
+CREATE INDEX IF NOT EXISTS idx_lo_state ON logistics_orders(state);
+
+-- ============================================
+-- Consent Records (DPDPA 2023 Compliance)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS consent_records (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  data_principal_id TEXT NOT NULL,
+  subscriber_id TEXT NOT NULL,
+  purpose TEXT NOT NULL,
+  consent_given BOOLEAN NOT NULL,
+  consent_timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  revoked_at TIMESTAMPTZ,
+  ip_address TEXT,
+  metadata JSONB
+);
+
+CREATE INDEX IF NOT EXISTS idx_consent_principal ON consent_records(data_principal_id);
+CREATE INDEX IF NOT EXISTS idx_consent_subscriber ON consent_records(subscriber_id);
+CREATE INDEX IF NOT EXISTS idx_consent_purpose ON consent_records(data_principal_id, purpose);
+
+-- ============================================
+-- Data Erasure Requests (Right to Erasure)
+-- ============================================
+
+DO $$ BEGIN
+  CREATE TYPE erasure_status AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS erasure_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  data_principal_id TEXT NOT NULL,
+  subscriber_id TEXT NOT NULL,
+  reason TEXT,
+  status erasure_status NOT NULL DEFAULT 'PENDING',
+  records_anonymized INTEGER DEFAULT 0,
+  completed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_erasure_principal ON erasure_requests(data_principal_id);
+CREATE INDEX IF NOT EXISTS idx_erasure_status ON erasure_requests(status);
+
+-- ============================================
+-- Post-Quantum Cryptography (Migration)
+-- ============================================
+-- For existing databases: add PQ key columns to subscribers.
+-- New installs already have these columns in the CREATE TABLE above.
+
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS pq_signing_public_key TEXT;
+ALTER TABLE subscribers ADD COLUMN IF NOT EXISTS pq_encryption_public_key TEXT;
+
+-- ============================================
+-- Indian Law Compliance Tables
+-- ============================================
+
+-- Data Breach Reports (DPDPA Section 12 + CERT-In)
+CREATE TABLE IF NOT EXISTS data_breach_reports (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  detected_at TIMESTAMPTZ NOT NULL,
+  notified_cert_in_at TIMESTAMPTZ,
+  notified_principals_at TIMESTAMPTZ,
+  description TEXT NOT NULL,
+  affected_records INTEGER DEFAULT 0,
+  data_categories TEXT[],
+  remedial_actions TEXT[],
+  status TEXT DEFAULT 'DETECTED',
+  cert_in_report_id TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Security Incidents (IT Act 2000 / CERT-In Directions 2022)
+CREATE TABLE IF NOT EXISTS security_incidents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  severity TEXT NOT NULL,
+  type TEXT NOT NULL,
+  description TEXT NOT NULL,
+  detected_at TIMESTAMPTZ NOT NULL,
+  reported_at TIMESTAMPTZ,
+  cert_in_report_id TEXT,
+  affected_systems TEXT[],
+  remediation TEXT[],
+  status TEXT DEFAULT 'DETECTED',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Data Principal Rights Requests (DPDPA Section 8)
+CREATE TABLE IF NOT EXISTS data_principal_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  principal_id TEXT NOT NULL,
+  request_type TEXT NOT NULL,
+  details TEXT,
+  requested_at TIMESTAMPTZ DEFAULT NOW(),
+  responded_at TIMESTAMPTZ,
+  response_deadline TIMESTAMPTZ NOT NULL,
+  status TEXT DEFAULT 'PENDING',
+  response TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_dpr_principal ON data_principal_requests(principal_id);
+CREATE INDEX IF NOT EXISTS idx_dpr_status ON data_principal_requests(status);
+CREATE INDEX IF NOT EXISTS idx_dpr_deadline ON data_principal_requests(response_deadline);

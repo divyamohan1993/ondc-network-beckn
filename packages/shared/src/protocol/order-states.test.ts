@@ -194,28 +194,28 @@ describe("isTerminalState", () => {
 // ---------------------------------------------------------------------------
 
 describe("isOrderState", () => {
-  it('should return true for "Created"', () => {
-    expect(isOrderState("Created")).toBe(true);
+  it('should return true for "CREATED"', () => {
+    expect(isOrderState("CREATED")).toBe(true);
   });
 
-  it('should return true for "Accepted"', () => {
-    expect(isOrderState("Accepted")).toBe(true);
+  it('should return true for "ACCEPTED"', () => {
+    expect(isOrderState("ACCEPTED")).toBe(true);
   });
 
-  it('should return true for "In-progress"', () => {
-    expect(isOrderState("In-progress")).toBe(true);
+  it('should return true for "IN_PROGRESS"', () => {
+    expect(isOrderState("IN_PROGRESS")).toBe(true);
   });
 
-  it('should return true for "Completed"', () => {
-    expect(isOrderState("Completed")).toBe(true);
+  it('should return true for "COMPLETED"', () => {
+    expect(isOrderState("COMPLETED")).toBe(true);
   });
 
-  it('should return true for "Cancelled"', () => {
-    expect(isOrderState("Cancelled")).toBe(true);
+  it('should return true for "CANCELLED"', () => {
+    expect(isOrderState("CANCELLED")).toBe(true);
   });
 
-  it('should return true for "Returned"', () => {
-    expect(isOrderState("Returned")).toBe(true);
+  it('should return true for "RETURNED"', () => {
+    expect(isOrderState("RETURNED")).toBe(true);
   });
 
   it("should return false for an empty string", () => {
@@ -230,7 +230,7 @@ describe("isOrderState", () => {
     expect(isOrderState("created")).toBe(false);
   });
 
-  it("should return false for an uppercase variant", () => {
-    expect(isOrderState("CANCELLED")).toBe(false);
+  it("should return false for a PascalCase variant", () => {
+    expect(isOrderState("Created")).toBe(false);
   });
 });

@@ -6,6 +6,7 @@ import {
   ack,
   nack,
   createLogger,
+  buildTraceHeaders,
 } from "@ondc/shared";
 import type { BecknRequest, RegistrySubscriber } from "@ondc/shared";
 import type { RegistryClient } from "@ondc/shared";
@@ -72,7 +73,7 @@ export function registerOnSearchRoute(
     // Parse the auth header to extract subscriber info
     const parsed = parseAuthHeader(authHeader);
 
-    if (!parsed.subscriberId) {
+    if (!parsed || !parsed.subscriberId) {
       logger.warn("Invalid Authorization header: missing subscriberId");
       return reply.code(401).send(
         nack("CONTEXT-ERROR", "10001", "Invalid Authorization header: unable to extract subscriberId."),
@@ -86,7 +87,7 @@ export function registerOnSearchRoute(
     } catch (err) {
       logger.error({ err, subscriberId: parsed.subscriberId }, "Registry lookup failed");
       return reply.code(500).send(
-        nack("INTERNAL-ERROR", "20000", "Failed to look up subscriber in registry."),
+        nack("CONTEXT-ERROR", "10000", "Failed to look up subscriber in registry."),
       );
     }
 
@@ -168,6 +169,7 @@ export function registerOnSearchRoute(
         gatewayPrivateKey,
         gatewaySubscriberId,
         gatewayKeyId,
+        { traceId: request.traceId, spanId: request.spanId },
       )
       .then((result) => {
         if (result.success) {

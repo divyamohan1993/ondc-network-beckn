@@ -9,3 +9,6 @@ export * from "./igm-types.js";
 export * from "./rsp-types.js";
 export * from "./return-reason-codes.js";
 export * from "./catalog-validation.js";
+export * from "./fulfillment-states.js";
+export * from "./feature-list.js";
+export * from "./rsf-types.js";

@@ -9,8 +9,12 @@ import {
 } from "../services/challenge.js";
 import {
   upsert,
+  findBySubscriberId,
   updateStatusBySubscriberId,
 } from "../services/subscriber.js";
+import { verifyDnsTxtRecord } from "../services/dns-verify.js";
+import { validateCertificate } from "../services/ocsp-validator.js";
+import { KeyTransparencyLog } from "../services/key-transparency.js";
 
 const logger = createLogger("registry:subscribe");
 
@@ -27,6 +31,10 @@ interface SubscribeBody {
   signing_public_key: string;
   encr_public_key: string;
   unique_key_id: string;
+  /** ML-DSA-65 public key for hybrid post-quantum signing (optional). */
+  pq_signing_public_key?: string;
+  /** ML-KEM-768 public key for hybrid post-quantum encryption (optional). */
+  pq_encryption_public_key?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -62,6 +70,10 @@ interface OndcSubscribeBody {
         encryption_public_key: string;
         valid_from: string;
         valid_until: string;
+        /** ML-DSA-65 public key for hybrid post-quantum signing (optional). */
+        pq_signing_public_key?: string;
+        /** ML-KEM-768 public key for hybrid post-quantum encryption (optional). */
+        pq_encryption_public_key?: string;
       };
     };
     network_participant: Array<{
@@ -71,6 +83,8 @@ interface OndcSubscribeBody {
       msn?: boolean;
       city_code?: string[];
     }>;
+    /** Optional feature list tag declaring supported flows */
+    feature_list?: Array<{ code: string; value: string }>;
   };
 }
 
@@ -126,6 +140,8 @@ function mapParticipantType(type: string): "BAP" | "BPP" | "BG" | null {
 export async function subscribeRoutes(fastify: FastifyInstance): Promise<void> {
   const db = fastify.db as Database;
   const redis = fastify.redis as Redis;
+  const registryPrivateKey = process.env["REGISTRY_SIGNING_PRIVATE_KEY"] ?? "";
+  const keyLog = new KeyTransparencyLog(db, registryPrivateKey);
 
   fastify.post<{ Body: SubscribeBody }>("/subscribe", async (request, reply) => {
     const body = request.body;
@@ -172,6 +188,42 @@ export async function subscribeRoutes(fastify: FastifyInstance): Promise<void> {
 
     try {
       // -------------------------------------------------------------------
+      // 1b. DNS TXT record verification
+      // -------------------------------------------------------------------
+      const dnsResult = await verifyDnsTxtRecord(body.subscriber_id, body.signing_public_key);
+      if (!dnsResult.verified) {
+        if (process.env["ENFORCE_DNS_VERIFICATION"] === "true") {
+          logger.warn({ subscriber_id: body.subscriber_id, error: dnsResult.error }, "DNS TXT verification failed, rejecting");
+          return reply.status(400).send({
+            error: {
+              type: "POLICY-ERROR",
+              code: "DNS_VERIFICATION_FAILED",
+              message: dnsResult.error ?? "DNS TXT record verification failed",
+            },
+          });
+        }
+        logger.warn({ subscriber_id: body.subscriber_id, error: dnsResult.error }, "DNS TXT verification failed, proceeding (enforcement disabled)");
+      }
+
+      // -------------------------------------------------------------------
+      // 1c. TLS certificate validation
+      // -------------------------------------------------------------------
+      const certResult = await validateCertificate(body.subscriber_url);
+      if (!certResult.valid) {
+        if (process.env["ENFORCE_CERT_VALIDATION"] === "true") {
+          logger.warn({ subscriber_id: body.subscriber_id, error: certResult.error }, "Certificate validation failed, rejecting");
+          return reply.status(400).send({
+            error: {
+              type: "POLICY-ERROR",
+              code: "CERT_VALIDATION_FAILED",
+              message: certResult.error ?? "TLS certificate validation failed",
+            },
+          });
+        }
+        logger.warn({ subscriber_id: body.subscriber_id, error: certResult.error }, "Certificate validation failed, proceeding (enforcement disabled)");
+      }
+
+      // -------------------------------------------------------------------
       // 2. Upsert subscriber with status INITIATED
       // -------------------------------------------------------------------
       const subscriber = await upsert(db, {
@@ -184,12 +236,27 @@ export async function subscribeRoutes(fastify: FastifyInstance): Promise<void> {
         encr_public_key: body.encr_public_key,
         unique_key_id: body.unique_key_id,
         status: "INITIATED",
+        ...(body.pq_signing_public_key ? { pq_signing_public_key: body.pq_signing_public_key } : {}),
+        ...(body.pq_encryption_public_key ? { pq_encryption_public_key: body.pq_encryption_public_key } : {}),
       });
 
       logger.info(
-        { subscriber_id: body.subscriber_id, id: subscriber.id },
+        { subscriber_id: body.subscriber_id, id: subscriber.id, pq: !!(body.pq_signing_public_key) },
         "Subscriber upserted with INITIATED status",
       );
+
+      // -------------------------------------------------------------------
+      // 2b. Record key change in transparency log
+      // -------------------------------------------------------------------
+      const existingSubscriber = await findBySubscriberId(db, body.subscriber_id);
+      const isKeyChange = existingSubscriber && existingSubscriber.signing_public_key !== body.signing_public_key;
+      await keyLog.recordKeyChange({
+        subscriberId: body.subscriber_id,
+        uniqueKeyId: body.unique_key_id,
+        publicKey: body.signing_public_key,
+        action: isKeyChange ? "ROTATED" : "REGISTERED",
+        previousKeyId: isKeyChange ? existingSubscriber.unique_key_id : undefined,
+      });
 
       // -------------------------------------------------------------------
       // 3. Generate a random challenge
@@ -328,9 +395,46 @@ export async function subscribeRoutes(fastify: FastifyInstance): Promise<void> {
 
     try {
       // -------------------------------------------------------------------
+      // 1b. DNS TXT record verification
+      // -------------------------------------------------------------------
+      const dnsResult = await verifyDnsTxtRecord(entity.subscriber_id, keyPair.signing_public_key);
+      if (!dnsResult.verified) {
+        if (process.env["ENFORCE_DNS_VERIFICATION"] === "true") {
+          logger.warn({ subscriber_id: entity.subscriber_id, error: dnsResult.error }, "DNS TXT verification failed, rejecting");
+          return reply.status(400).send({
+            error: {
+              type: "POLICY-ERROR",
+              code: "DNS_VERIFICATION_FAILED",
+              message: dnsResult.error ?? "DNS TXT record verification failed",
+            },
+          });
+        }
+        logger.warn({ subscriber_id: entity.subscriber_id, error: dnsResult.error }, "DNS TXT verification failed, proceeding (enforcement disabled)");
+      }
+
+      // -------------------------------------------------------------------
+      // 1c. TLS certificate validation
+      // -------------------------------------------------------------------
+      const subscriberUrl = entity.callback_url ?? networkParticipants[0]!.subscriber_url;
+      const certResult = await validateCertificate(subscriberUrl);
+      if (!certResult.valid) {
+        if (process.env["ENFORCE_CERT_VALIDATION"] === "true") {
+          logger.warn({ subscriber_id: entity.subscriber_id, error: certResult.error }, "Certificate validation failed, rejecting");
+          return reply.status(400).send({
+            error: {
+              type: "POLICY-ERROR",
+              code: "CERT_VALIDATION_FAILED",
+              message: certResult.error ?? "TLS certificate validation failed",
+            },
+          });
+        }
+        logger.warn({ subscriber_id: entity.subscriber_id, error: certResult.error }, "Certificate validation failed, proceeding (enforcement disabled)");
+      }
+
+      // -------------------------------------------------------------------
       // 2. Extract entity data and create subscriber(s)
       // -------------------------------------------------------------------
-      const results: Array<{ subscriber_id: string; type: string; challenge: string }> = [];
+      const results: Array<{ subscriber_id: string; type: string }> = [];
 
       for (const subType of subscriberTypes) {
         // Find matching network_participant entry for this type
@@ -361,6 +465,8 @@ export async function subscribeRoutes(fastify: FastifyInstance): Promise<void> {
           encr_public_key: keyPair.encryption_public_key,
           unique_key_id: entity.unique_key_id,
           status: "INITIATED",
+          ...(keyPair.pq_signing_public_key ? { pq_signing_public_key: keyPair.pq_signing_public_key } : {}),
+          ...(keyPair.pq_encryption_public_key ? { pq_encryption_public_key: keyPair.pq_encryption_public_key } : {}),
         });
 
         // -------------------------------------------------------------------
@@ -378,6 +484,19 @@ export async function subscribeRoutes(fastify: FastifyInstance): Promise<void> {
           { subscriber_id: entity.subscriber_id, type: subType, id: subscriber.id },
           "ONDC subscriber upserted with INITIATED status",
         );
+
+        // -------------------------------------------------------------------
+        // Record key change in transparency log
+        // -------------------------------------------------------------------
+        const priorSubscriber = await findBySubscriberId(db, entity.subscriber_id);
+        const isRotation = priorSubscriber && priorSubscriber.signing_public_key !== keyPair.signing_public_key;
+        await keyLog.recordKeyChange({
+          subscriberId: entity.subscriber_id,
+          uniqueKeyId: entity.unique_key_id,
+          publicKey: keyPair.signing_public_key,
+          action: isRotation ? "ROTATED" : "REGISTERED",
+          previousKeyId: isRotation ? priorSubscriber.unique_key_id : undefined,
+        });
 
         // -------------------------------------------------------------------
         // Insert subscriber_domains entries for multi-domain support
@@ -401,23 +520,12 @@ export async function subscribeRoutes(fastify: FastifyInstance): Promise<void> {
         }
 
         // -------------------------------------------------------------------
-        // 5. Generate challenge and encrypt
-        // -------------------------------------------------------------------
-        const challenge = generateChallenge();
-        const encryptedChallenge = encryptChallenge(challenge, keyPair.encryption_public_key);
-
-        // -------------------------------------------------------------------
-        // 6. Update status to UNDER_SUBSCRIPTION
+        // Update status to UNDER_SUBSCRIPTION
         // -------------------------------------------------------------------
         await updateStatusBySubscriberId(db, entity.subscriber_id, "UNDER_SUBSCRIPTION");
 
         // -------------------------------------------------------------------
-        // 7. Store challenge in Redis (5 min TTL)
-        // -------------------------------------------------------------------
-        await storeChallenge(entity.subscriber_id, challenge, redis);
-
-        // -------------------------------------------------------------------
-        // 8. Audit log
+        // Audit log
         // -------------------------------------------------------------------
         await db.insert(auditLogs).values({
           actor: entity.subscriber_id,
@@ -437,9 +545,32 @@ export async function subscribeRoutes(fastify: FastifyInstance): Promise<void> {
         results.push({
           subscriber_id: entity.subscriber_id,
           type: subType,
-          challenge: encryptedChallenge,
         });
       }
+
+      // -------------------------------------------------------------------
+      // 5. Store feature_list if provided in the subscription payload
+      // -------------------------------------------------------------------
+      const featureList = body.message.feature_list;
+      if (featureList && Array.isArray(featureList) && featureList.length > 0) {
+        const featureListKey = `ondc:registry:feature_list:${entity.subscriber_id}`;
+        await redis.set(featureListKey, JSON.stringify(featureList));
+        // Keep feature list for 30 days
+        await redis.expire(featureListKey, 30 * 24 * 60 * 60);
+        logger.info(
+          { subscriber_id: entity.subscriber_id, featureCount: featureList.length },
+          "Feature list stored from subscription payload",
+        );
+      }
+
+      // -------------------------------------------------------------------
+      // 6. Generate ONE challenge per subscriber_id (not per type)
+      //    For ops_no=4, both types share the same challenge since it
+      //    verifies key possession, not per-type identity.
+      // -------------------------------------------------------------------
+      const challenge = generateChallenge();
+      const encryptedChallenge = encryptChallenge(challenge, keyPair.encryption_public_key);
+      await storeChallenge(entity.subscriber_id, challenge, redis);
 
       logger.info(
         { subscriber_id: entity.subscriber_id, types: subscriberTypes },
@@ -450,7 +581,7 @@ export async function subscribeRoutes(fastify: FastifyInstance): Promise<void> {
       // 9. Return encrypted challenge(s)
       // -------------------------------------------------------------------
       return reply.status(200).send({
-        challenge: results[results.length - 1]!.challenge,
+        challenge: encryptedChallenge,
         ...(results.length > 1 ? { participants: results } : {}),
       });
     } catch (err) {

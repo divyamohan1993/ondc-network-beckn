@@ -23,6 +23,10 @@ export interface CreateSubscriberData {
   city?: string;
   signing_public_key: string;
   encr_public_key?: string;
+  /** ML-DSA-65 public key for hybrid post-quantum signing. */
+  pq_signing_public_key?: string;
+  /** ML-KEM-768 public key for hybrid post-quantum encryption. */
+  pq_encryption_public_key?: string;
   unique_key_id: string;
   status?: "INITIATED" | "UNDER_SUBSCRIPTION" | "SUBSCRIBED" | "SUSPENDED" | "REVOKED";
   is_simulated?: boolean;
@@ -148,6 +152,8 @@ export async function upsert(db: Database, data: CreateSubscriberData) {
       city: data.city,
       signing_public_key: data.signing_public_key,
       encr_public_key: data.encr_public_key,
+      pq_signing_public_key: data.pq_signing_public_key ?? null,
+      pq_encryption_public_key: data.pq_encryption_public_key ?? null,
       unique_key_id: data.unique_key_id,
       status: data.status ?? "INITIATED",
       is_simulated: data.is_simulated ?? false,
@@ -161,6 +167,8 @@ export async function upsert(db: Database, data: CreateSubscriberData) {
         city: data.city,
         signing_public_key: data.signing_public_key,
         encr_public_key: data.encr_public_key,
+        pq_signing_public_key: data.pq_signing_public_key ?? null,
+        pq_encryption_public_key: data.pq_encryption_public_key ?? null,
         unique_key_id: data.unique_key_id,
         status: data.status ?? "INITIATED",
         updated_at: new Date(),

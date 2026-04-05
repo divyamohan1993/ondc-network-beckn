@@ -46,7 +46,7 @@ async function main(): Promise<void> {
 
   // Register CORS
   await fastify.register(cors, {
-    origin: true,
+    origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || [process.env.DOMAIN ? `https://${process.env.DOMAIN}` : 'http://localhost:3000'],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   });
 

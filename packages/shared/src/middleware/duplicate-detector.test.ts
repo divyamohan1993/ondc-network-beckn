@@ -36,7 +36,14 @@ function createMockRedis() {
   const store = new Map<string, { value: string; expiresAt?: number }>();
   return {
     get: async (key: string) => { const e = store.get(key); return e ? e.value : null; },
-    set: async (key: string, value: string, mode?: string, ttl?: number) => { store.set(key, { value, expiresAt: mode === "EX" && ttl ? Date.now() + ttl * 1000 : undefined }); return "OK"; },
+    set: async (key: string, value: string, ...args: any[]) => {
+      const hasNx = args.includes("NX");
+      const exIdx = args.indexOf("EX");
+      const ttl = exIdx >= 0 ? args[exIdx + 1] as number : undefined;
+      if (hasNx && store.has(key)) return null;
+      store.set(key, { value, expiresAt: ttl ? Date.now() + ttl * 1000 : undefined });
+      return "OK";
+    },
     incr: async (key: string) => { const e = store.get(key); const n = (e ? parseInt(e.value) : 0) + 1; store.set(key, { value: String(n), expiresAt: e?.expiresAt }); return n; },
     expire: async (key: string, s: number) => { const e = store.get(key); if (e) { e.expiresAt = Date.now() + s * 1000; return 1; } return 0; },
     ttl: async (key: string) => { const e = store.get(key); if (!e?.expiresAt) return -1; return Math.max(0, Math.floor((e.expiresAt - Date.now()) / 1000)); },

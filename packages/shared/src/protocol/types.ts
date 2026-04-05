@@ -29,6 +29,25 @@ export enum BecknCallbackAction {
 }
 
 // ---------------------------------------------------------------------------
+// Routing Type Enums (ONDC v1.2.5)
+// ---------------------------------------------------------------------------
+
+export enum RoutingType {
+  P2P = "P2P",
+  P2H2P = "P2H2P",
+}
+
+// ---------------------------------------------------------------------------
+// Fulfillment Type Enums (ONDC v1.2.5)
+// ---------------------------------------------------------------------------
+
+export enum FulfillmentType {
+  Delivery = "Delivery",
+  SelfPickup = "Self-Pickup",
+  DeliveryAndSelfPickup = "Delivery and Self-Pickup",
+}
+
+// ---------------------------------------------------------------------------
 // Subscriber Enums
 // ---------------------------------------------------------------------------
 
@@ -118,6 +137,7 @@ export interface Category {
 export interface Fulfillment {
   id?: string;
   type?: string;
+  routing_type?: RoutingType;
   provider_id?: string;
   rating?: number;
   state?: { descriptor?: Descriptor; updated_at?: string; updated_by?: string };
@@ -443,7 +463,7 @@ export interface BecknContext {
   timestamp: string;
   key?: string;
   /** TTL for the request (ISO 8601 duration, e.g. "PT30S") */
-  ttl?: string;
+  ttl: string;
   /** Max number of callbacks expected for this message */
   max_callbacks?: number;
 }

@@ -9,6 +9,11 @@ import {
   createRateLimiterMiddleware,
   createDuplicateDetector,
   createNetworkPolicyMiddleware,
+  tracingMiddleware,
+  metricsMiddleware,
+  globalMetrics,
+  OndcMetricsReporter,
+  derivePiiKey,
 } from "@ondc/shared";
 import type { Database } from "@ondc/shared";
 import { healthRoute } from "./routes/health.js";
@@ -25,10 +30,13 @@ const logger = createLogger("bap");
 // ---------------------------------------------------------------------------
 
 const BAP_PORT = parseInt(process.env["BAP_PORT"] ?? "3004", 10);
-const DATABASE_URL =
-  process.env["DATABASE_URL"] ??
-  "postgresql://ondc:ondc@localhost:5432/ondc_network";
-const REDIS_URL = process.env["REDIS_URL"] ?? "redis://localhost:6379";
+const DATABASE_URL = process.env["DATABASE_URL"];
+const REDIS_URL = process.env["REDIS_URL"];
+
+if (!DATABASE_URL || !REDIS_URL) {
+  logger.error("Missing required environment variables: DATABASE_URL, REDIS_URL");
+  process.exit(1);
+}
 
 // BAP identity configuration
 const BAP_ID = process.env["BAP_ID"] ?? "bap.example.com";
@@ -40,6 +48,12 @@ const GATEWAY_URL =
 const REGISTRY_URL =
   process.env["REGISTRY_URL"] ?? "http://localhost:3001";
 
+// ONDC network mode: when set, BAP uses real ONDC registry/gateway for subscribe/lookup
+const ONDC_REGISTRY_URL = process.env["ONDC_REGISTRY_URL"];
+const ONDC_GATEWAY_URL = process.env["ONDC_GATEWAY_URL"];
+const registryUrl = ONDC_REGISTRY_URL || REGISTRY_URL;
+const gatewayUrl = ONDC_GATEWAY_URL || GATEWAY_URL;
+
 // ---------------------------------------------------------------------------
 // Extend Fastify instance with shared dependencies
 // ---------------------------------------------------------------------------
@@ -48,6 +62,7 @@ declare module "fastify" {
   interface FastifyInstance {
     db: Database;
     redis: Redis;
+    piiKey: Buffer;
     config: {
       bapId: string;
       bapUri: string;
@@ -68,12 +83,36 @@ async function main(): Promise<void> {
     logger: false, // we use our own pino logger
   });
 
+  // --- Raw body parser (stores raw string for auth signature verification) ---
+  fastify.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    (req, body, done) => {
+      try {
+        (req as any).rawBody = body as string;
+        done(null, JSON.parse(body as string));
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    },
+  );
+
   // --- CORS ---
-  await fastify.register(cors, { origin: true });
+  await fastify.register(cors, { origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || [process.env.DOMAIN ? `https://${process.env.DOMAIN}` : 'http://localhost:3000'] });
 
   // --- PostgreSQL ---
-  const { db, pool } = createDb(DATABASE_URL);
+  const { db, pool } = createDb(DATABASE_URL!);
   fastify.decorate("db", db);
+
+  // Verify database connection at startup
+  try {
+    const client = await pool.connect();
+    client.release();
+    logger.info("PostgreSQL connected");
+  } catch (err) {
+    logger.error({ err }, "Failed to connect to PostgreSQL");
+    throw err;
+  }
 
   // Graceful shutdown: close pool
   fastify.addHook("onClose", async () => {
@@ -82,7 +121,7 @@ async function main(): Promise<void> {
   });
 
   // --- Redis ---
-  const redis = new Redis(REDIS_URL);
+  const redis = new Redis(REDIS_URL!);
   fastify.decorate("redis", redis);
 
   redis.on("error", (err) => {
@@ -92,10 +131,25 @@ async function main(): Promise<void> {
     logger.info("Connected to Redis");
   });
 
+  // Verify Redis connection at startup
+  try {
+    await redis.ping();
+    logger.info("Redis connected");
+  } catch (err) {
+    logger.error({ err }, "Failed to connect to Redis");
+    throw err;
+  }
+
   fastify.addHook("onClose", async () => {
     redis.disconnect();
     logger.info("Redis disconnected");
   });
+
+  // --- PII encryption key ---
+  const piiKey = derivePiiKey(
+    process.env["VAULT_MASTER_KEY"] ?? process.env["PII_ENCRYPTION_KEY"] ?? "default-dev-key",
+  );
+  fastify.decorate("piiKey", piiKey);
 
   // --- Config ---
   fastify.decorate("config", {
@@ -103,8 +157,8 @@ async function main(): Promise<void> {
     bapUri: BAP_URI,
     privateKey: BAP_PRIVATE_KEY,
     uniqueKeyId: BAP_UNIQUE_KEY_ID,
-    gatewayUrl: GATEWAY_URL,
-    registryUrl: REGISTRY_URL,
+    gatewayUrl: gatewayUrl,
+    registryUrl: registryUrl,
   });
 
   // --- Error handler ---
@@ -132,6 +186,8 @@ async function main(): Promise<void> {
   });
 
   // Apply middleware globally to all Beckn protocol routes
+  fastify.addHook("preHandler", tracingMiddleware);
+  fastify.addHook("preHandler", metricsMiddleware);
   fastify.addHook("preHandler", rateLimiter);
   fastify.addHook("preHandler", duplicateDetector);
   fastify.addHook("preHandler", networkPolicy);
@@ -144,9 +200,43 @@ async function main(): Promise<void> {
   await fastify.register(registerIgmRoutes, { prefix: "/" });
   await fastify.register(registerRspRoutes, { prefix: "/" });
 
+  // --- Observability endpoints ---
+  fastify.get("/metrics", async (_request, reply) => {
+    reply.header("Content-Type", "text/plain; version=0.0.4");
+    return globalMetrics.toPrometheus("ondc_bap");
+  });
+
+  fastify.get("/metrics/json", async () => {
+    return globalMetrics.getMetrics();
+  });
+
+  // --- ONDC metrics reporter ---
+  const metricsUrl = process.env["ONDC_METRICS_URL"];
+  if (metricsUrl) {
+    const reporter = new OndcMetricsReporter({
+      reportingUrl: metricsUrl,
+      subscriberId: BAP_ID,
+      subscriberType: "BAP",
+    });
+    reporter.start(globalMetrics);
+
+    fastify.addHook("onClose", async () => {
+      reporter.stop();
+    });
+  }
+
   // --- Start ---
   await fastify.listen({ port: BAP_PORT, host: "0.0.0.0" });
   logger.info(`BAP Protocol Adapter listening on port ${BAP_PORT}`);
+
+  // --- Graceful shutdown ---
+  const shutdown = async (signal: string) => {
+    logger.info({ signal }, "Received shutdown signal");
+    await fastify.close();
+    process.exit(0);
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
 main().catch((err) => {

@@ -9,8 +9,10 @@ import {
   nack,
   transactions,
   settlements,
+  settlementInstructions,
   createVerifyAuthMiddleware,
   createLogger,
+  SettlementService,
 } from "@ondc/shared";
 import type {
   CollectorReconRequest,
@@ -18,6 +20,7 @@ import type {
   ReceiverReconRequest,
   OnReceiverReconRequest,
   OrderReconEntry,
+  NocsWebhookPayload,
 } from "@ondc/shared";
 import { request as httpRequest } from "undici";
 import { notifyWebhook } from "../../services/webhook.js";
@@ -201,6 +204,7 @@ export const registerRspRoutes: FastifyPluginAsync = async (
           bpp_id: fastify.config.bppId,
           bpp_uri: fastify.config.bppUri,
           transaction_id: context.transaction_id,
+          message_id: context.message_id,
         });
 
         // Build callback body echoing back the orders with recon status
@@ -254,7 +258,7 @@ export const registerRspRoutes: FastifyPluginAsync = async (
       } catch (err) {
         logger.error({ err }, "Error processing collector_recon");
         return reply.code(500).send(
-          nack("INTERNAL-ERROR", "20000", "Internal error processing collector_recon."),
+          nack("DOMAIN-ERROR", "31001", "Internal error processing collector_recon."),
         );
       }
     },
@@ -288,7 +292,7 @@ export const registerRspRoutes: FastifyPluginAsync = async (
 
     try {
       const callbackContext = buildContext({
-        domain: domain ?? "nic2004:52110",
+        domain: domain ?? "ONDC:RET10",
         city: city ?? "std:080",
         action: RspCallbackAction.on_collector_recon,
         bap_id,
@@ -335,7 +339,7 @@ export const registerRspRoutes: FastifyPluginAsync = async (
     } catch (err) {
       logger.error({ err }, "Error sending on_collector_recon callback");
       return reply.code(500).send(
-        nack("INTERNAL-ERROR", "20000", "Internal error sending on_collector_recon."),
+        nack("DOMAIN-ERROR", "31001", "Internal error sending on_collector_recon."),
       );
     }
   });
@@ -434,7 +438,44 @@ export const registerRspRoutes: FastifyPluginAsync = async (
       } catch (err) {
         logger.error({ err }, "Error processing receiver_recon");
         return reply.code(500).send(
-          nack("INTERNAL-ERROR", "20000", "Internal error processing receiver_recon."),
+          nack("DOMAIN-ERROR", "31001", "Internal error processing receiver_recon."),
+        );
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /settlement/webhook  -  NOCS settlement status callback (RSF 2.0)
+  // -------------------------------------------------------------------------
+  fastify.post<{ Body: NocsWebhookPayload }>(
+    "/settlement/webhook",
+    async (request, reply) => {
+      const { order_id, status, settlement_reference, timestamp: eventTs } = request.body;
+
+      if (!order_id || !status) {
+        return reply.code(400).send(
+          nack("CONTEXT-ERROR", "10000", "order_id and status are required."),
+        );
+      }
+
+      try {
+        const settlementService = new SettlementService(fastify.db);
+        await settlementService.updateSettlementStatus(
+          order_id,
+          status,
+          settlement_reference,
+        );
+
+        logger.info(
+          { orderId: order_id, status, settlementReference: settlement_reference, eventTs },
+          "NOCS settlement webhook processed",
+        );
+
+        return reply.code(200).send(ack());
+      } catch (err) {
+        logger.error({ err, orderId: order_id }, "Error processing NOCS settlement webhook");
+        return reply.code(500).send(
+          nack("DOMAIN-ERROR", "31001", "Internal error processing settlement webhook."),
         );
       }
     },
@@ -498,7 +539,7 @@ export const registerRspRoutes: FastifyPluginAsync = async (
       } catch (err) {
         logger.error({ err }, "Error processing on_receiver_recon callback");
         return reply.code(500).send(
-          nack("INTERNAL-ERROR", "20000", "Internal error processing on_receiver_recon."),
+          nack("DOMAIN-ERROR", "31001", "Internal error processing on_receiver_recon."),
         );
       }
     },

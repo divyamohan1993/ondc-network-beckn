@@ -4,6 +4,7 @@ import { eq, and, gte, lte, or, isNull, type SQL } from "drizzle-orm";
 import { createLogger } from "@ondc/shared/utils";
 import { subscribers, subscriberDomains, type Database } from "@ondc/shared/db";
 import { buildAuthHeader, verify } from "@ondc/shared/crypto";
+import { KeyTransparencyLog } from "../services/key-transparency.js";
 
 const logger = createLogger("registry:lookup");
 
@@ -16,6 +17,7 @@ const LOOKUP_CACHE_TTL_SECONDS = 300; // 5 minutes
 
 interface LookupBody {
   subscriber_id?: string;
+  unique_key_id?: string;
   type?: "BAP" | "BPP" | "BG";
   domain?: string;
   city?: string;
@@ -66,6 +68,8 @@ const PUBLIC_FIELDS = {
   city: subscribers.city,
   signing_public_key: subscribers.signing_public_key,
   encr_public_key: subscribers.encr_public_key,
+  pq_signing_public_key: subscribers.pq_signing_public_key,
+  pq_encryption_public_key: subscribers.pq_encryption_public_key,
   unique_key_id: subscribers.unique_key_id,
   status: subscribers.status,
   valid_from: subscribers.valid_from,
@@ -94,6 +98,7 @@ export async function lookupRoutes(fastify: FastifyInstance): Promise<void> {
     try {
       const cacheKey = `${LOOKUP_CACHE_PREFIX}${JSON.stringify({
         s: body.subscriber_id ?? "",
+        u: body.unique_key_id ?? "",
         t: body.type ?? "",
         d: body.domain ?? "",
         c: body.city ?? "",
@@ -130,6 +135,9 @@ export async function lookupRoutes(fastify: FastifyInstance): Promise<void> {
 
       if (body.subscriber_id) {
         conditions.push(eq(subscribers.subscriber_id, body.subscriber_id));
+      }
+      if (body.unique_key_id) {
+        conditions.push(eq(subscribers.unique_key_id, body.unique_key_id));
       }
       if (body.type) {
         conditions.push(eq(subscribers.type, body.type));
@@ -218,6 +226,9 @@ export async function lookupRoutes(fastify: FastifyInstance): Promise<void> {
 
       if (body.subscriber_id) {
         conditions.push(eq(subscribers.subscriber_id, body.subscriber_id));
+      }
+      if (body.unique_key_id) {
+        conditions.push(eq(subscribers.unique_key_id, body.unique_key_id));
       }
       if (body.type) {
         conditions.push(eq(subscribers.type, body.type));
@@ -378,8 +389,16 @@ export async function lookupRoutes(fastify: FastifyInstance): Promise<void> {
       } else {
         logger.warn(
           { sender_subscriber_id: body.sender_subscriber_id },
-          "Sender not found in registry, skipping signature verification",
+          "Sender not found in registry, cannot verify signature",
         );
+        return reply.status(401).send({
+          message: { ack: { status: "NACK" } },
+          error: {
+            type: "CONTEXT-ERROR",
+            code: "10001",
+            message: "Sender not found in registry, cannot verify signature",
+          },
+        });
       }
 
       // -------------------------------------------------------------------
@@ -477,4 +496,52 @@ export async function lookupRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
   });
+
+  // -------------------------------------------------------------------------
+  // GET /key-history/:subscriberId
+  //
+  // Returns the append-only key transparency log for a subscriber.
+  // Allows NPs to verify key consistency over time.
+  // -------------------------------------------------------------------------
+  const keyLog = new KeyTransparencyLog(db, registryPrivateKey);
+
+  fastify.get<{ Params: { subscriberId: string } }>(
+    "/key-history/:subscriberId",
+    async (request, reply) => {
+      const { subscriberId } = request.params;
+
+      if (!subscriberId) {
+        return reply.status(400).send({
+          error: {
+            type: "CONTEXT-ERROR",
+            code: "MISSING_SUBSCRIBER_ID",
+            message: "subscriberId path parameter is required",
+          },
+        });
+      }
+
+      try {
+        const history = await keyLog.getKeyHistory(subscriberId);
+
+        logger.info(
+          { subscriberId, entryCount: history.length },
+          "Key history lookup completed",
+        );
+
+        return reply.status(200).send({
+          subscriber_id: subscriberId,
+          entries: history,
+        });
+      } catch (err) {
+        logger.error({ err, subscriberId }, "Error fetching key history");
+        return reply.status(500).send({
+          error: {
+            type: "INTERNAL-ERROR",
+            code: "KEY_HISTORY_FAILED",
+            message: "An internal error occurred while fetching key history.",
+          },
+        });
+      }
+    },
+  );
 }

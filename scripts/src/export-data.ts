@@ -10,9 +10,11 @@ import { gte, lte, and, type SQL } from "drizzle-orm";
 import fs from "node:fs";
 import path from "node:path";
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ??
-  "postgresql://ondc:ondc@localhost:5432/ondc_network";
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error("DATABASE_URL environment variable is required");
+  process.exit(1);
+}
 
 // ---------------------------------------------------------------------------
 // Helpers

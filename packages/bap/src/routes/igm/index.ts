@@ -4,6 +4,7 @@ import {
   IgmCallbackAction,
   IssueStatus,
   IGM_SLA,
+  RespondentAction,
   validateBecknRequest,
   buildAuthHeader,
   buildContext,
@@ -13,6 +14,7 @@ import {
   issues,
   createVerifyAuthMiddleware,
   createLogger,
+  EscalationService,
 } from "@ondc/shared";
 import type {
   IssueRequest,
@@ -39,6 +41,8 @@ const logger = createLogger("bap-igm");
 export const registerIgmRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance,
 ): Promise<void> => {
+  const escalationService = new EscalationService(fastify.db);
+
   // Auth verification for incoming callbacks from BPP
   const verifyAuth = createVerifyAuthMiddleware({
     registryUrl: fastify.config.registryUrl,
@@ -95,6 +99,9 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
           resolution_provider: issue.resolution_provider ?? null,
         });
 
+        // Start escalation timer at Level 1
+        await escalationService.createTimer(issue.id);
+
         // Log the transaction
         await fastify.db.insert(transactions).values({
           transaction_id: context.transaction_id,
@@ -141,7 +148,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
       } catch (err) {
         logger.error({ err }, "Error processing IGM issue");
         return reply.code(500).send(
-          nack("INTERNAL-ERROR", "20000", "Internal error processing issue."),
+          nack("DOMAIN-ERROR", "23001", "Internal error processing issue."),
         );
       }
     },
@@ -182,6 +189,21 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
           })
           .where(eq(issues.issue_id, issue.id));
 
+        // Handle escalation state based on issue status / respondent actions
+        if (issue.status === IssueStatus.RESOLVED) {
+          await escalationService.markResolved(issue.id);
+        } else {
+          const respondentActions = issue.issue_actions?.respondent_actions ?? [];
+          const latestAction = respondentActions[respondentActions.length - 1];
+          if (latestAction) {
+            if (latestAction.respondent_action === RespondentAction.CASCADED) {
+              await escalationService.escalate(issue.id);
+            } else if (latestAction.respondent_action === RespondentAction.PROCESSING) {
+              await escalationService.markAcknowledged(issue.id);
+            }
+          }
+        }
+
         // Log the callback transaction
         await fastify.db.insert(transactions).values({
           transaction_id: context.transaction_id,
@@ -217,7 +239,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
       } catch (err) {
         logger.error({ err }, "Error processing on_issue callback");
         return reply.code(500).send(
-          nack("INTERNAL-ERROR", "20000", "Internal error processing on_issue."),
+          nack("DOMAIN-ERROR", "23001", "Internal error processing on_issue."),
         );
       }
     },
@@ -300,7 +322,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
       } catch (err) {
         logger.error({ err }, "Error processing issue_status");
         return reply.code(500).send(
-          nack("INTERNAL-ERROR", "20000", "Internal error processing issue_status."),
+          nack("DOMAIN-ERROR", "23001", "Internal error processing issue_status."),
         );
       }
     },
@@ -376,7 +398,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
       } catch (err) {
         logger.error({ err }, "Error processing on_issue_status callback");
         return reply.code(500).send(
-          nack("INTERNAL-ERROR", "20000", "Internal error processing on_issue_status."),
+          nack("DOMAIN-ERROR", "23001", "Internal error processing on_issue_status."),
         );
       }
     },

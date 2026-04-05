@@ -65,7 +65,7 @@ export const registerCallbackRoutes: FastifyPluginAsync = async (
       try {
         // Build the callback context
         const callbackContext = buildContext({
-          domain: domain ?? "nic2004:52110",
+          domain: domain ?? "ONDC:RET10",
           city: city ?? "std:080",
           action: callbackAction,
           bap_id,
@@ -134,7 +134,7 @@ export const registerCallbackRoutes: FastifyPluginAsync = async (
       } catch (err) {
         logger.error({ err, callbackAction }, "Error sending callback");
         return reply.code(500).send(
-          nack("INTERNAL-ERROR", "20000", "Internal error sending callback."),
+          nack("DOMAIN-ERROR", "31001", "Internal error sending callback."),
         );
       }
     });

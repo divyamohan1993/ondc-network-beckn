@@ -116,7 +116,7 @@ describe("buildContext", () => {
     expect(ctx.city).toBe("std:080");
   });
 
-  it('should default core_version to "1.2.0"', () => {
+  it('should default core_version to "1.2.5"', () => {
     const ctx = buildContext({
       domain: "ONDC:RET10",
       action: "search",
@@ -124,7 +124,7 @@ describe("buildContext", () => {
       bap_uri: "https://buyer-app.example.com/beckn",
     });
 
-    expect(ctx.core_version).toBe("1.2.0");
+    expect(ctx.core_version).toBe("1.2.5");
   });
 
   it("should emit both v1.1 (country, city, core_version) and v1.2 (location, version) fields", () => {
@@ -138,13 +138,13 @@ describe("buildContext", () => {
     // v1.1 flat fields
     expect(ctx.country).toBe("IND");
     expect(ctx.city).toBe("std:080");
-    expect(ctx.core_version).toBe("1.2.0");
+    expect(ctx.core_version).toBe("1.2.5");
 
     // v1.2 nested fields
     expect(ctx.location).toBeDefined();
     expect(ctx.location?.country?.code).toBe("IND");
     expect(ctx.location?.city?.code).toBe("std:080");
-    expect(ctx.version).toBe("1.2.0");
+    expect(ctx.version).toBe("1.2.5");
   });
 
   it("should include key when provided", () => {

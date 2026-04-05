@@ -30,17 +30,21 @@ declare module "fastify" {
 
 const PORT = parseInt(process.env["MOCK_SERVER_PORT"] ?? "3010", 10);
 const HOST = process.env["MOCK_SERVER_HOST"] ?? "0.0.0.0";
-const DATABASE_URL =
-  process.env["DATABASE_URL"] ?? "postgresql://ondc:ondc@localhost:5432/ondc_network";
-const REDIS_URL = process.env["REDIS_URL"] ?? "redis://localhost:6379";
-const BAP_ADAPTER_URL = process.env["BAP_ADAPTER_URL"] ?? "http://localhost:3003";
-const AUTO_CONTINUE = process.env["MOCK_AUTO_CONTINUE"] !== "false";
-
 // ---------------------------------------------------------------------------
 // Logger
 // ---------------------------------------------------------------------------
 
 const logger = createLogger("mock-server");
+
+const DATABASE_URL = process.env["DATABASE_URL"];
+const REDIS_URL = process.env["REDIS_URL"];
+
+if (!DATABASE_URL || !REDIS_URL) {
+  logger.error("Missing required environment variables: DATABASE_URL, REDIS_URL");
+  process.exit(1);
+}
+const BAP_ADAPTER_URL = process.env["BAP_ADAPTER_URL"] ?? "http://localhost:3003";
+const AUTO_CONTINUE = process.env["MOCK_AUTO_CONTINUE"] !== "false";
 
 // ---------------------------------------------------------------------------
 // Load catalog data
@@ -89,7 +93,7 @@ async function main(): Promise<void> {
   // Register CORS
   // -------------------------------------------------------------------------
   await fastify.register(cors, {
-    origin: process.env["CORS_ORIGIN"] ?? true,
+    origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || [process.env.DOMAIN ? `https://${process.env.DOMAIN}` : 'http://localhost:3000'],
     methods: ["GET", "POST", "OPTIONS"],
   });
 
@@ -97,7 +101,7 @@ async function main(): Promise<void> {
   // Connect to PostgreSQL via Drizzle
   // -------------------------------------------------------------------------
   logger.info("Connecting to PostgreSQL...");
-  const { db, pool } = createDb(DATABASE_URL);
+  const { db, pool } = createDb(DATABASE_URL!);
   fastify.decorate("db", db);
 
   try {
@@ -113,7 +117,7 @@ async function main(): Promise<void> {
   // Connect to Redis
   // -------------------------------------------------------------------------
   logger.info("Connecting to Redis...");
-  const redis = new Redis(REDIS_URL, {
+  const redis = new Redis(REDIS_URL!, {
     maxRetriesPerRequest: 3,
     retryStrategy(times: number) {
       const delay = Math.min(times * 200, 5000);

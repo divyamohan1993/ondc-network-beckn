@@ -21,7 +21,7 @@ function mapErrorToONDC(statusCode: number): BecknErrorMapping {
       case 403:
         return { type: "POLICY-ERROR", code: "30001" };
       case 404:
-        return { type: "DOMAIN-ERROR", code: "40000" };
+        return { type: "DOMAIN-ERROR", code: "20000" };
       case 422:
         return { type: "CONTEXT-ERROR", code: "10000" };
       default:
@@ -30,7 +30,7 @@ function mapErrorToONDC(statusCode: number): BecknErrorMapping {
   }
 
   // 5xx and everything else
-  return { type: "INTERNAL-ERROR", code: "20000" };
+  return { type: "TECHNICAL-ERROR", code: "50000" };
 }
 
 /**

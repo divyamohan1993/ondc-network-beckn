@@ -5,3 +5,5 @@ export { createRateLimiterMiddleware, type RateLimiterConfig, createSubscriberRa
 export { createFinderFeeValidator, type FinderFeeValidatorConfig } from "./finder-fee-validator.js";
 export { createNetworkPolicyMiddleware, type NetworkPolicyConfig, ACTION_RESPONSE_SLA, MANDATORY_TAGS_BY_DOMAIN, getActionSla, isWithinSla } from "./network-policy.js";
 export { createDuplicateDetector, type DuplicateDetectorConfig } from "./duplicate-detector.js";
+export { tracingMiddleware, buildTraceHeaders, buildTraceHeadersFromContext, TRACE_ID_HEADER, SPAN_ID_HEADER, PARENT_SPAN_HEADER } from "./tracing.js";
+export { metricsMiddleware } from "./metrics.js";

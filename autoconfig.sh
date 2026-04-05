@@ -364,6 +364,35 @@ echo "  BPP key:      ${BPP_SIGNING_PUBLIC_KEY:0:12}..."
 
 log_success "  Ed25519 key pairs generated for all services."
 
+# Generate X25519 encryption key pair for registry subscribe challenge-response
+echo "  Generating X25519 encryption key pair for registry..."
+X25519_KEYGEN_SCRIPT='
+const crypto = require("crypto");
+const { publicKey, privateKey } = crypto.generateKeyPairSync("x25519");
+const pubDer = publicKey.export({ type: "spki", format: "der" });
+const privDer = privateKey.export({ type: "pkcs8", format: "der" });
+// X25519 SPKI DER: last 32 bytes are the raw public key
+const rawPub = pubDer.slice(-32);
+// X25519 PKCS8 DER: last 32 bytes are the raw private key
+const rawPriv = privDer.slice(-32);
+console.log(JSON.stringify({
+  publicKey: rawPub.toString("base64"),
+  privateKey: rawPriv.toString("base64")
+}));
+'
+X25519_JSON=$(node -e "$X25519_KEYGEN_SCRIPT" 2>/dev/null)
+
+if [ -n "$X25519_JSON" ] && [ "$X25519_JSON" != "" ]; then
+  REGISTRY_ENCRYPTION_PUBLIC_KEY=$(echo "$X25519_JSON" | jq -r '.publicKey')
+  REGISTRY_ENCRYPTION_PRIVATE_KEY=$(echo "$X25519_JSON" | jq -r '.privateKey')
+  echo "  Encryption key: ${REGISTRY_ENCRYPTION_PUBLIC_KEY:0:12}..."
+  log_success "  X25519 encryption key pair generated."
+else
+  log_warn "  WARNING: X25519 key generation failed. Registry encryption disabled."
+  REGISTRY_ENCRYPTION_PUBLIC_KEY=""
+  REGISTRY_ENCRYPTION_PRIVATE_KEY=""
+fi
+
 # =============================================================================
 # Step 5: Generate admin password if not provided
 # =============================================================================
@@ -393,6 +422,8 @@ NEXTAUTH_SECRET=$(openssl rand -hex 64)
 INTERNAL_API_KEY=$(openssl rand -hex 64)
 VAULT_MASTER_KEY=$(openssl rand -hex 32)
 VAULT_TOKEN_SECRET=$(openssl rand -hex 64)
+VAULT_API_KEY=$(openssl rand -hex 64)
+ADMIN_TOKEN=$(openssl rand -hex 64)
 
 echo "  PostgreSQL password: ${POSTGRES_PASSWORD:0:8}..."
 echo "  Redis password:      ${REDIS_PASSWORD:0:8}..."
@@ -401,6 +432,8 @@ echo "  NextAuth secret:     ${NEXTAUTH_SECRET:0:12}..."
 echo "  Internal API key:    ${INTERNAL_API_KEY:0:12}..."
 echo "  Vault master key:    ${VAULT_MASTER_KEY:0:12}..."
 echo "  Vault token secret:  ${VAULT_TOKEN_SECRET:0:12}..."
+echo "  Vault API key:       ${VAULT_API_KEY:0:12}..."
+echo "  Admin token:         ${ADMIN_TOKEN:0:12}..."
 
 log_success "  All passwords dynamically generated (no static defaults)."
 
@@ -472,6 +505,19 @@ set_env "ORCHESTRATOR_URL" "http://orchestrator:3007"
 set_env "HEALTH_MONITOR_URL" "http://health-monitor:3008"
 set_env "LOG_AGGREGATOR_URL" "http://log-aggregator:3009"
 set_env "SIMULATION_ENGINE_URL" "http://simulation-engine:3011"
+
+# Vault API Key
+set_env "VAULT_API_KEY" "$VAULT_API_KEY"
+
+# Admin Token
+set_env "ADMIN_TOKEN" "$ADMIN_TOKEN"
+
+# Registry Encryption (X25519)
+set_env "REGISTRY_ENCRYPTION_PRIVATE_KEY" "$REGISTRY_ENCRYPTION_PRIVATE_KEY"
+set_env "REGISTRY_ENCRYPTION_PUBLIC_KEY" "$REGISTRY_ENCRYPTION_PUBLIC_KEY"
+
+# CORS
+set_env "CORS_ALLOWED_ORIGINS" "https://admin.${DOMAIN},https://${DOMAIN}"
 
 # Production mode flag
 if [ "$PRODUCTION" = true ]; then
@@ -1015,6 +1061,11 @@ NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
 INTERNAL_API_KEY=${INTERNAL_API_KEY}
 VAULT_MASTER_KEY=${VAULT_MASTER_KEY}
 VAULT_TOKEN_SECRET=${VAULT_TOKEN_SECRET}
+VAULT_API_KEY=${VAULT_API_KEY}
+ADMIN_TOKEN=${ADMIN_TOKEN}
+
+REGISTRY_ENCRYPTION_PUBLIC_KEY=${REGISTRY_ENCRYPTION_PUBLIC_KEY}
+REGISTRY_ENCRYPTION_PRIVATE_KEY=${REGISTRY_ENCRYPTION_PRIVATE_KEY}
 
 REGISTRY_SIGNING_PUBLIC_KEY=${REGISTRY_SIGNING_PUBLIC_KEY}
 REGISTRY_SIGNING_PRIVATE_KEY=${REGISTRY_SIGNING_PRIVATE_KEY}

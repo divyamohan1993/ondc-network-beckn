@@ -6,6 +6,8 @@ import {
   nack,
   transactions,
   createLogger,
+  isNetworkCancellation,
+  maskPiiInBody,
 } from "@ondc/shared";
 import type { BecknRequest } from "@ondc/shared";
 import { BecknClient } from "../../services/beckn-client.js";
@@ -56,7 +58,12 @@ export const registerActionRoutes: FastifyPluginAsync = async (
         const { context } = body;
 
         try {
-          // Log transaction as SENT
+          // Resolve city from v1.1 flat field or v1.2 nested location
+          const resolvedCity = context.city
+            || context.location?.city?.code
+            || "";
+
+          // Log transaction as SENT (PII encrypted at rest)
           await fastify.db.insert(transactions).values({
             transaction_id: context.transaction_id,
             message_id: context.message_id,
@@ -64,10 +71,21 @@ export const registerActionRoutes: FastifyPluginAsync = async (
             bap_id: context.bap_id,
             bpp_id: context.bpp_id ?? null,
             domain: context.domain,
-            city: context.city,
-            request_body: body,
+            city: resolvedCity,
+            request_body: maskPiiInBody(body, fastify.piiKey),
             status: "SENT",
           });
+
+          // Log force cancellation requests for audit trail
+          if (action === BecknAction.cancel) {
+            const cancelCode = (body.message as any)?.order?.cancellation?.reason?.id;
+            if (cancelCode && isNetworkCancellation(cancelCode)) {
+              logger.warn(
+                { action, transactionId: context.transaction_id, cancellationCode: cancelCode, initiator: "network" },
+                "Sending force/network-initiated cancellation request",
+              );
+            }
+          }
 
           // Send the signed request
           if (action === BecknAction.search) {
@@ -130,7 +148,7 @@ export const registerActionRoutes: FastifyPluginAsync = async (
         } catch (err) {
           logger.error({ err, action }, "Error processing action");
           return reply.code(500).send(
-            nack("INTERNAL-ERROR", "20000", "Internal error processing action."),
+            nack("DOMAIN-ERROR", "23001", "Internal error processing action."),
           );
         }
       },

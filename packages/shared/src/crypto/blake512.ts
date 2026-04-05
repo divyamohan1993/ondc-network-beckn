@@ -3,12 +3,26 @@ import { blake2b } from "blakejs";
 /**
  * Compute a BLAKE-512 (BLAKE2b-512) hash of the given body.
  * If body is an object, it is JSON.stringified first.
+ * Suitable for signing (where we control serialization).
  * @param body - String or object to hash.
  * @returns Base64-encoded BLAKE-512 digest.
  */
 export function hashBody(body: string | object): string {
   const data = typeof body === "object" ? JSON.stringify(body) : body;
   const hashBytes = blake2b(new TextEncoder().encode(data), undefined, 64);
+  return Buffer.from(hashBytes).toString("base64");
+}
+
+/**
+ * Compute a BLAKE-512 (BLAKE2b-512) hash of raw body bytes.
+ * Use this for verification where the original wire bytes must be preserved
+ * to avoid JSON re-serialization differences.
+ * @param raw - The raw body as a string or Buffer exactly as received on the wire.
+ * @returns Base64-encoded BLAKE-512 digest.
+ */
+export function hashRawBody(raw: string | Buffer): string {
+  const bytes = typeof raw === "string" ? new TextEncoder().encode(raw) : new Uint8Array(raw);
+  const hashBytes = blake2b(bytes, undefined, 64);
   return Buffer.from(hashBytes).toString("base64");
 }
 

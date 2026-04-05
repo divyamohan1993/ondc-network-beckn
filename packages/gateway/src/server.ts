@@ -11,6 +11,11 @@ import {
   createRateLimiterMiddleware,
   createDuplicateDetector,
   createNetworkPolicyMiddleware,
+  tracingMiddleware,
+  metricsMiddleware,
+  globalMetrics,
+  OndcMetricsReporter,
+  derivePiiKey,
 } from "@ondc/shared";
 
 import { DiscoveryService } from "./services/discovery.js";
@@ -29,10 +34,15 @@ const logger = createLogger("gateway");
 const PORT = parseInt(process.env["GATEWAY_PORT"] ?? "3002", 10);
 const HOST = process.env["GATEWAY_HOST"] ?? "0.0.0.0";
 
-const DATABASE_URL = process.env["DATABASE_URL"] ?? "postgresql://postgres:postgres@localhost:5432/ondc";
-const REDIS_URL = process.env["REDIS_URL"] ?? "redis://localhost:6379";
-const RABBITMQ_URL = process.env["RABBITMQ_URL"] ?? "amqp://guest:guest@localhost:5672";
+const DATABASE_URL = process.env["DATABASE_URL"];
+const REDIS_URL = process.env["REDIS_URL"];
+const RABBITMQ_URL = process.env["RABBITMQ_URL"];
 const REGISTRY_URL = process.env["REGISTRY_URL"] ?? "http://localhost:3001";
+
+if (!DATABASE_URL || !REDIS_URL || !RABBITMQ_URL) {
+  logger.error("Missing required environment variables: DATABASE_URL, REDIS_URL, RABBITMQ_URL");
+  process.exit(1);
+}
 
 const GATEWAY_PRIVATE_KEY = process.env["GATEWAY_PRIVATE_KEY"] ?? "";
 const GATEWAY_SUBSCRIBER_ID = process.env["GATEWAY_SUBSCRIBER_ID"] ?? "";
@@ -53,9 +63,23 @@ async function main(): Promise<void> {
     },
   });
 
+  // --- Raw body parser (stores raw string for auth signature verification) ---
+  fastify.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    (req, body, done) => {
+      try {
+        (req as any).rawBody = body as string;
+        done(null, JSON.parse(body as string));
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    },
+  );
+
   // Register CORS
   await fastify.register(cors, {
-    origin: true,
+    origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || [process.env.DOMAIN ? `https://${process.env.DOMAIN}` : 'http://localhost:3000'],
     methods: ["GET", "POST", "OPTIONS"],
   });
 
@@ -66,14 +90,23 @@ async function main(): Promise<void> {
   // Connect to PostgreSQL via Drizzle
   // -------------------------------------------------------------------------
   logger.info("Connecting to PostgreSQL...");
-  const { db, pool } = createDb(DATABASE_URL);
-  logger.info("PostgreSQL connected");
+  const { db, pool } = createDb(DATABASE_URL!);
+
+  // Verify database connection at startup
+  try {
+    const client = await pool.connect();
+    client.release();
+    logger.info("PostgreSQL connected");
+  } catch (err) {
+    logger.error({ err }, "Failed to connect to PostgreSQL");
+    throw err;
+  }
 
   // -------------------------------------------------------------------------
   // Connect to Redis
   // -------------------------------------------------------------------------
   logger.info("Connecting to Redis...");
-  const redis = new Redis(REDIS_URL);
+  const redis = new Redis(REDIS_URL!);
 
   redis.on("error", (err: unknown) => {
     logger.error({ err }, "Redis connection error");
@@ -83,11 +116,20 @@ async function main(): Promise<void> {
     logger.info("Redis connected");
   });
 
+  // Verify Redis connection at startup
+  try {
+    await redis.ping();
+    logger.info("Redis verified");
+  } catch (err) {
+    logger.error({ err }, "Failed to connect to Redis");
+    throw err;
+  }
+
   // -------------------------------------------------------------------------
   // Connect to RabbitMQ
   // -------------------------------------------------------------------------
   logger.info("Connecting to RabbitMQ...");
-  const rabbitConnection = await amqplib.connect(RABBITMQ_URL);
+  const rabbitConnection = await amqplib.connect(RABBITMQ_URL!);
 
   rabbitConnection.on("error", (err) => {
     logger.error({ err }, "RabbitMQ connection error");
@@ -142,6 +184,8 @@ async function main(): Promise<void> {
   });
 
   // Apply middleware globally
+  fastify.addHook("preHandler", tracingMiddleware);
+  fastify.addHook("preHandler", metricsMiddleware);
   fastify.addHook("preHandler", rateLimiter);
   fastify.addHook("preHandler", duplicateDetector);
   fastify.addHook("preHandler", networkPolicy);
@@ -149,6 +193,11 @@ async function main(): Promise<void> {
   // -------------------------------------------------------------------------
   // Register routes
   // -------------------------------------------------------------------------
+  // --- PII encryption key ---
+  const piiKey = derivePiiKey(
+    process.env["VAULT_MASTER_KEY"] ?? process.env["PII_ENCRYPTION_KEY"] ?? "default-dev-key",
+  );
+
   registerSearchRoute(fastify, {
     registryClient,
     discoveryService,
@@ -157,6 +206,7 @@ async function main(): Promise<void> {
     gatewayPrivateKey: GATEWAY_PRIVATE_KEY,
     gatewaySubscriberId: GATEWAY_SUBSCRIBER_ID,
     gatewayKeyId: GATEWAY_KEY_ID,
+    piiKey,
   });
 
   registerOnSearchRoute(fastify, {
@@ -170,7 +220,36 @@ async function main(): Promise<void> {
 
   registerHealthRoute(fastify, {
     rabbitConnection,
+    db,
+    redis,
   });
+
+  // -------------------------------------------------------------------------
+  // Observability endpoints
+  // -------------------------------------------------------------------------
+  fastify.get("/metrics", async (_request, reply) => {
+    reply.header("Content-Type", "text/plain; version=0.0.4");
+    return globalMetrics.toPrometheus("ondc_gateway");
+  });
+
+  fastify.get("/metrics/json", async () => {
+    return globalMetrics.getMetrics();
+  });
+
+  // ONDC metrics reporter
+  const metricsUrl = process.env["ONDC_METRICS_URL"];
+  if (metricsUrl) {
+    const reporter = new OndcMetricsReporter({
+      reportingUrl: metricsUrl,
+      subscriberId: GATEWAY_SUBSCRIBER_ID,
+      subscriberType: "BG",
+    });
+    reporter.start(globalMetrics);
+
+    fastify.addHook("onClose", async () => {
+      reporter.stop();
+    });
+  }
 
   // -------------------------------------------------------------------------
   // Start server

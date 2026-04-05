@@ -98,7 +98,7 @@ describe("becknErrorHandler", () => {
     );
   });
 
-  it("maps 404 to DOMAIN-ERROR 40000", () => {
+  it("maps 404 to DOMAIN-ERROR 20000", () => {
     const error = createFastifyError(404, "Not found");
     const request = createMockRequest({});
     const reply = createMockReply();
@@ -110,13 +110,13 @@ describe("becknErrorHandler", () => {
       expect.objectContaining({
         error: expect.objectContaining({
           type: "DOMAIN-ERROR",
-          code: "40000",
+          code: "20000",
         }),
       }),
     );
   });
 
-  it("maps 500+ to INTERNAL-ERROR 20000", () => {
+  it("maps 500+ to TECHNICAL-ERROR 50000", () => {
     const error = createFastifyError(500, "Unexpected failure");
     const request = createMockRequest({});
     const reply = createMockReply();
@@ -127,8 +127,8 @@ describe("becknErrorHandler", () => {
     expect(reply._state.body).toEqual(
       expect.objectContaining({
         error: expect.objectContaining({
-          type: "INTERNAL-ERROR",
-          code: "20000",
+          type: "TECHNICAL-ERROR",
+          code: "50000",
         }),
       }),
     );
@@ -140,8 +140,8 @@ describe("becknErrorHandler", () => {
     expect(reply502._state.body).toEqual(
       expect.objectContaining({
         error: expect.objectContaining({
-          type: "INTERNAL-ERROR",
-          code: "20000",
+          type: "TECHNICAL-ERROR",
+          code: "50000",
         }),
       }),
     );
@@ -205,8 +205,8 @@ describe("becknErrorHandler", () => {
     expect(reply._state.body).toEqual(
       expect.objectContaining({
         error: expect.objectContaining({
-          type: "INTERNAL-ERROR",
-          code: "20000",
+          type: "TECHNICAL-ERROR",
+          code: "50000",
           message: "Internal server error. Please try again later.",
         }),
       }),

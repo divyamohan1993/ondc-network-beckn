@@ -84,7 +84,7 @@ export async function secretsRoutes(fastify: FastifyInstance): Promise<void> {
           .where(eq(vaultSecrets.name, name))
           .limit(1);
 
-        if (existing && !existing.is_deleted) {
+        if (existing && existing.status !== "REVOKED") {
           return reply.status(409).send({
             error: {
               type: "CONFLICT",
@@ -97,7 +97,7 @@ export async function secretsRoutes(fastify: FastifyInstance): Promise<void> {
         // Encrypt the value
         const encryptedValue = encryption.encrypt(value);
 
-        if (existing && existing.is_deleted) {
+        if (existing && existing.status === "REVOKED") {
           // Re-activate a soft-deleted secret
           await db
             .update(vaultSecrets)
@@ -108,7 +108,7 @@ export async function secretsRoutes(fastify: FastifyInstance): Promise<void> {
               version: 1,
               rotation_interval_seconds: rotationInterval ?? null,
               last_rotated_at: null,
-              is_deleted: false,
+              status: "ACTIVE",
               updated_at: new Date(),
             })
             .where(eq(vaultSecrets.id, existing.id));
@@ -180,7 +180,7 @@ export async function secretsRoutes(fastify: FastifyInstance): Promise<void> {
           updated_at: vaultSecrets.updated_at,
         })
         .from(vaultSecrets)
-        .where(eq(vaultSecrets.is_deleted, false))
+        .where(eq(vaultSecrets.status, "ACTIVE"))
         .orderBy(vaultSecrets.name);
 
       return reply.status(200).send({
@@ -224,7 +224,7 @@ export async function secretsRoutes(fastify: FastifyInstance): Promise<void> {
           .where(
             and(
               eq(vaultSecrets.name, name),
-              eq(vaultSecrets.is_deleted, false),
+              eq(vaultSecrets.status, "ACTIVE"),
             ),
           )
           .limit(1);
@@ -300,7 +300,7 @@ export async function secretsRoutes(fastify: FastifyInstance): Promise<void> {
           .where(
             and(
               eq(vaultSecrets.name, name),
-              eq(vaultSecrets.is_deleted, false),
+              eq(vaultSecrets.status, "ACTIVE"),
             ),
           )
           .limit(1);
@@ -398,7 +398,7 @@ export async function secretsRoutes(fastify: FastifyInstance): Promise<void> {
           .where(
             and(
               eq(vaultSecrets.name, name),
-              eq(vaultSecrets.is_deleted, false),
+              eq(vaultSecrets.status, "ACTIVE"),
             ),
           )
           .limit(1);
@@ -413,11 +413,11 @@ export async function secretsRoutes(fastify: FastifyInstance): Promise<void> {
           });
         }
 
-        // Soft-delete
+        // Soft-delete via status
         await db
           .update(vaultSecrets)
           .set({
-            is_deleted: true,
+            status: "REVOKED",
             updated_at: new Date(),
           })
           .where(eq(vaultSecrets.id, existing.id));

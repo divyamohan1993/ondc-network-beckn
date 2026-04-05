@@ -22,5 +22,7 @@ COPY --from=builder /app/node_modules ./node_modules/
 COPY --from=builder /app/packages/shared/node_modules packages/shared/node_modules/
 COPY --from=builder /app/packages/health-monitor/node_modules packages/health-monitor/node_modules/
 WORKDIR /app/packages/health-monitor
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nodejs
+USER nodejs
 EXPOSE 3008
 CMD ["node", "dist/server.js"]

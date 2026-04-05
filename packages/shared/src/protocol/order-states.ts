@@ -6,12 +6,12 @@
  * Enumeration of all valid ONDC order states.
  */
 export enum OrderState {
-  Created = "Created",
-  Accepted = "Accepted",
-  InProgress = "In-progress",
-  Completed = "Completed",
-  Cancelled = "Cancelled",
-  Returned = "Returned",
+  Created = "CREATED",
+  Accepted = "ACCEPTED",
+  InProgress = "IN_PROGRESS",
+  Completed = "COMPLETED",
+  Cancelled = "CANCELLED",
+  Returned = "RETURNED",
 }
 
 // ---------------------------------------------------------------------------

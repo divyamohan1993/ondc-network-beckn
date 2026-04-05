@@ -16,7 +16,7 @@ const AUTH_TAG_LENGTH = 16; // 128-bit auth tag
 const KEY_LENGTH = 32; // 256-bit key
 const PBKDF2_ITERATIONS = 100_000;
 const PBKDF2_DIGEST = "sha512";
-const PBKDF2_SALT = "ondc-vault-key-derivation-salt-v1";
+const SALT_LENGTH = 32;
 
 // ---------------------------------------------------------------------------
 // EncryptionService
@@ -26,22 +26,25 @@ const PBKDF2_SALT = "ondc-vault-key-derivation-salt-v1";
  * AES-256-GCM encryption service for the vault.
  *
  * The encryption key is derived from a master key using PBKDF2 with 100,000
- * iterations. Each encrypt operation uses a unique 12-byte IV. The output
- * format is: base64(iv + authTag + ciphertext)
+ * iterations with a unique random salt per operation. Each encrypt uses a
+ * unique 12-byte IV. The output format is: base64(salt + iv + authTag + ciphertext)
  */
 export class EncryptionService {
-  private readonly key: Buffer;
-
-  constructor(masterKey: string) {
+  constructor(private readonly masterKey: string) {
     if (!masterKey || masterKey.length < 16) {
       throw new Error(
         "VAULT_MASTER_KEY must be at least 16 characters long",
       );
     }
 
-    this.key = pbkdf2Sync(
-      masterKey,
-      PBKDF2_SALT,
+    // Key is derived per-operation with a unique salt (see encrypt/decrypt)
+    // We keep masterKey for deriving keys on the fly
+  }
+
+  private deriveKey(salt: Buffer): Buffer {
+    return pbkdf2Sync(
+      this.masterKey,
+      salt,
       PBKDF2_ITERATIONS,
       KEY_LENGTH,
       PBKDF2_DIGEST,
@@ -55,8 +58,10 @@ export class EncryptionService {
    * @returns base64-encoded string containing iv + authTag + ciphertext
    */
   encrypt(plaintext: string): string {
+    const salt = randomBytes(SALT_LENGTH);
+    const key = this.deriveKey(salt);
     const iv = randomBytes(IV_LENGTH);
-    const cipher = createCipheriv(ALGORITHM, this.key, iv, {
+    const cipher = createCipheriv(ALGORITHM, key, iv, {
       authTagLength: AUTH_TAG_LENGTH,
     });
 
@@ -67,8 +72,8 @@ export class EncryptionService {
 
     const authTag = cipher.getAuthTag();
 
-    // Concatenate iv + authTag + ciphertext and base64 encode
-    const combined = Buffer.concat([iv, authTag, encrypted]);
+    // Concatenate salt + iv + authTag + ciphertext and base64 encode
+    const combined = Buffer.concat([salt, iv, authTag, encrypted]);
     return combined.toString("base64");
   }
 
@@ -82,15 +87,17 @@ export class EncryptionService {
   decrypt(encrypted: string): string {
     const combined = Buffer.from(encrypted, "base64");
 
-    if (combined.length < IV_LENGTH + AUTH_TAG_LENGTH + 1) {
+    if (combined.length < SALT_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH + 1) {
       throw new Error("Invalid encrypted data: too short");
     }
 
-    const iv = combined.subarray(0, IV_LENGTH);
-    const authTag = combined.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH);
-    const ciphertext = combined.subarray(IV_LENGTH + AUTH_TAG_LENGTH);
+    const salt = combined.subarray(0, SALT_LENGTH);
+    const iv = combined.subarray(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
+    const authTag = combined.subarray(SALT_LENGTH + IV_LENGTH, SALT_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH);
+    const ciphertext = combined.subarray(SALT_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH);
 
-    const decipher = createDecipheriv(ALGORITHM, this.key, iv, {
+    const key = this.deriveKey(salt);
+    const decipher = createDecipheriv(ALGORITHM, key, iv, {
       authTagLength: AUTH_TAG_LENGTH,
     });
     decipher.setAuthTag(authTag);

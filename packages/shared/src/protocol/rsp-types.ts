@@ -54,6 +54,8 @@ export enum ReconStatus {
   MATCHED = "01",
   UNMATCHED = "02",
   DISPUTED = "03",
+  OVERPAID = "04",
+  UNDERPAID = "05",
 }
 
 /**
@@ -261,7 +263,9 @@ export function isValidReconStatus(value: string): value is ReconStatus {
   return (
     value === ReconStatus.MATCHED ||
     value === ReconStatus.UNMATCHED ||
-    value === ReconStatus.DISPUTED
+    value === ReconStatus.DISPUTED ||
+    value === ReconStatus.OVERPAID ||
+    value === ReconStatus.UNDERPAID
   );
 }
 
@@ -279,6 +283,10 @@ export function getReconStatusLabel(status: ReconStatus): string {
       return "Unmatched";
     case ReconStatus.DISPUTED:
       return "Disputed";
+    case ReconStatus.OVERPAID:
+      return "Overpaid";
+    case ReconStatus.UNDERPAID:
+      return "Underpaid";
   }
 }
 

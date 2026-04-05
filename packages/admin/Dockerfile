@@ -16,5 +16,7 @@ WORKDIR /app
 COPY --from=builder /app/packages/admin/.next/standalone ./
 COPY --from=builder /app/packages/admin/.next/static ./packages/admin/.next/static
 COPY --from=builder /app/packages/admin/public ./packages/admin/public
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nodejs
+USER nodejs
 EXPOSE 3003
 CMD ["node", "packages/admin/server.js"]

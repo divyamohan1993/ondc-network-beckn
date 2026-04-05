@@ -40,4 +40,16 @@ spec:
   policyTypes:
     - Egress
   egress:
-    - to: []
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ondc
+      ports:
+        - protocol: TCP
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53

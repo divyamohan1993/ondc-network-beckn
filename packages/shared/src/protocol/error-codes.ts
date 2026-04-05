@@ -467,6 +467,8 @@ export function formatOfficialBecknError(
     type = OndcErrorType.POLICY_ERROR;
   } else if (numericCode >= 40000 && numericCode < 50000) {
     type = OndcErrorType.BUSINESS_ERROR;
+  } else if (numericCode >= 50000 && numericCode < 60000) {
+    type = OndcErrorType.POLICY_ERROR;
   } else {
     type = OndcErrorType.TECHNICAL_ERROR;
   }

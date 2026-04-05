@@ -36,7 +36,8 @@ spec:
                 try {
                   // Seed admin user (bcrypt not available in node:22-alpine by default, use raw hash placeholder)
                   const adminEmail = process.env.ADMIN_EMAIL || 'admin@ondc.dmj.one';
-                  const adminPass = process.env.ADMIN_PASSWORD || 'changeme';
+                  const adminPass = process.env.ADMIN_PASSWORD;
+                  if (!adminPass) { console.error('ADMIN_PASSWORD environment variable is required'); process.exit(1); }
 
                   // Use crypto for a basic hash since bcrypt isn't available
                   const hash = crypto.createHash('sha256').update(adminPass).digest('hex');

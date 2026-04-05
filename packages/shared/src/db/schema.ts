@@ -11,6 +11,7 @@ import {
   numeric,
   unique,
 } from "drizzle-orm/pg-core";
+import { type InferSelectModel } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
 // Enums
@@ -64,6 +65,8 @@ export const subscribers = pgTable("subscribers", {
   city: text("city"),
   signing_public_key: text("signing_public_key").notNull(),
   encr_public_key: text("encr_public_key"),
+  pq_signing_public_key: text("pq_signing_public_key"),
+  pq_encryption_public_key: text("pq_encryption_public_key"),
   unique_key_id: text("unique_key_id").notNull(),
   status: subscriberStatusEnum("status").default("INITIATED"),
   valid_from: timestamp("valid_from", { withTimezone: true }),
@@ -184,7 +187,7 @@ export const vaultSecrets = pgTable("vault_secrets", {
   encrypted_value: text("encrypted_value").notNull(),
   previous_encrypted_value: text("previous_encrypted_value"),
   service: text("service").notNull(),
-  version: integer("version").default(1),
+  version: integer("version").notNull().default(1),
   rotation_interval_seconds: integer("rotation_interval_seconds"),
   status: secretStatusEnum("status").default("ACTIVE"),
   last_rotated_at: timestamp("last_rotated_at", { withTimezone: true }),
@@ -387,6 +390,74 @@ export const orderStateTransitions = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Fulfillment State Machine (ONDC v1.2.5)
+// ---------------------------------------------------------------------------
+
+export const fulfillmentStateEnum = pgEnum("fulfillment_state", [
+  "Pending",
+  "Packed",
+  "Agent-assigned",
+  "Order-picked-up",
+  "In-transit",
+  "At-destination-hub",
+  "Out-for-delivery",
+  "Order-delivered",
+  "Cancelled",
+  "RTO-Initiated",
+  "RTO-Delivered",
+]);
+
+export const routingTypeEnum = pgEnum("routing_type", ["P2P", "P2H2P"]);
+
+export const fulfillments = pgTable(
+  "fulfillments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    order_id: text("order_id")
+      .notNull()
+      .references(() => orders.order_id),
+    fulfillment_id: text("fulfillment_id").notNull(),
+    type: text("type").default("Delivery"),
+    routing_type: routingTypeEnum("routing_type").default("P2P"),
+    state: fulfillmentStateEnum("state").default("Pending"),
+    provider_id: text("provider_id"),
+    agent_name: text("agent_name"),
+    agent_phone: text("agent_phone"),
+    vehicle_registration: text("vehicle_registration"),
+    tracking_url: text("tracking_url"),
+    estimated_delivery: timestamp("estimated_delivery", { withTimezone: true }),
+    actual_delivery: timestamp("actual_delivery", { withTimezone: true }),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_fulfillments_order_id").on(table.order_id),
+    index("idx_fulfillments_state").on(table.state),
+    unique("fulfillments_order_id_fulfillment_id").on(
+      table.order_id,
+      table.fulfillment_id,
+    ),
+  ],
+);
+
+export const fulfillmentStateTransitions = pgTable(
+  "fulfillment_state_transitions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    fulfillment_id: uuid("fulfillment_id")
+      .notNull()
+      .references(() => fulfillments.id),
+    from_state: fulfillmentStateEnum("from_state"),
+    to_state: fulfillmentStateEnum("to_state").notNull(),
+    triggered_by: text("triggered_by"),
+    timestamp: timestamp("timestamp", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_fst_fulfillment_id").on(table.fulfillment_id),
+  ],
+);
+
+// ---------------------------------------------------------------------------
 // IGM (Issue & Grievance Management) Tables
 // ---------------------------------------------------------------------------
 
@@ -555,6 +626,163 @@ export const ratings = pgTable(
 // Multi-Domain Subscriber Support
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// RSF 2.0 (NBBL/NOCS Settlement) Tables
+// ---------------------------------------------------------------------------
+
+export const settlementBasisEnum = pgEnum("settlement_basis", [
+  "collection",
+  "shipment",
+  "delivery",
+  "return_window",
+]);
+
+export const nocsTxnStatusEnum = pgEnum("nocs_txn_status", [
+  "INITIATED",
+  "PENDING",
+  "SETTLED",
+  "FAILED",
+  "DISPUTED",
+  "REVERSED",
+]);
+
+export const nbblRegistrations = pgTable("nbbl_registrations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  subscriber_id: text("subscriber_id").unique().notNull(),
+  settlement_account_no: text("settlement_account_no").notNull(),
+  settlement_ifsc: text("settlement_ifsc").notNull(),
+  settlement_bank_name: text("settlement_bank_name").notNull(),
+  virtual_payment_address: text("virtual_payment_address"),
+  nocs_onboarded: boolean("nocs_onboarded").default(false),
+  settlement_agency_id: text("settlement_agency_id"),
+  registered_at: timestamp("registered_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export const settlementInstructions = pgTable(
+  "settlement_instructions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    order_id: text("order_id").notNull(),
+    collector_subscriber_id: text("collector_subscriber_id").notNull(),
+    receiver_subscriber_id: text("receiver_subscriber_id").notNull(),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    currency: text("currency").default("INR"),
+    settlement_basis: settlementBasisEnum("settlement_basis").notNull(),
+    settlement_window_start: timestamp("settlement_window_start", { withTimezone: true }),
+    settlement_due_date: timestamp("settlement_due_date", { withTimezone: true }),
+    withholding_amount: numeric("withholding_amount", { precision: 12, scale: 2 }).default("0"),
+    finder_fee_amount: numeric("finder_fee_amount", { precision: 12, scale: 2 }).default("0"),
+    platform_fee_amount: numeric("platform_fee_amount", { precision: 12, scale: 2 }).default("0"),
+    net_payable: numeric("net_payable", { precision: 12, scale: 2 }).notNull(),
+    status: nocsTxnStatusEnum("status").default("INITIATED"),
+    settlement_reference: text("settlement_reference"),
+    signature: text("signature"),
+    signed_by: text("signed_by"),
+    settled_at: timestamp("settled_at", { withTimezone: true }),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_si_order_id").on(table.order_id),
+    index("idx_si_collector").on(table.collector_subscriber_id),
+    index("idx_si_receiver").on(table.receiver_subscriber_id),
+    index("idx_si_status").on(table.status),
+    unique("idx_si_order_unique").on(
+      table.order_id,
+      table.collector_subscriber_id,
+      table.receiver_subscriber_id,
+    ),
+  ],
+);
+
+export const withholdingPool = pgTable(
+  "withholding_pool",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    order_id: text("order_id").notNull(),
+    collector_subscriber_id: text("collector_subscriber_id").notNull(),
+    withheld_amount: numeric("withheld_amount", { precision: 12, scale: 2 }).notNull(),
+    release_date: timestamp("release_date", { withTimezone: true }).notNull(),
+    released: boolean("released").default(false).notNull(),
+    released_at: timestamp("released_at", { withTimezone: true }),
+    refund_used: numeric("refund_used", { precision: 12, scale: 2 }).default("0"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_wp_order_id").on(table.order_id),
+    index("idx_wp_release").on(table.release_date),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// IGM Escalation Timers
+// ---------------------------------------------------------------------------
+
+export const escalationTimers = pgTable(
+  "escalation_timers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    issue_id: text("issue_id").notNull(),
+    current_level: integer("current_level").notNull().default(1),
+    escalation_deadline: timestamp("escalation_deadline", {
+      withTimezone: true,
+    }).notNull(),
+    escalated: boolean("escalated").default(false),
+    escalated_at: timestamp("escalated_at", { withTimezone: true }),
+    acknowledged: boolean("acknowledged").default(false),
+    acknowledged_at: timestamp("acknowledged_at", { withTimezone: true }),
+    resolved: boolean("resolved").default(false),
+    resolved_at: timestamp("resolved_at", { withTimezone: true }),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_et_issue_id").on(table.issue_id),
+    index("idx_et_deadline").on(table.escalation_deadline),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Logistics Orders (LSP Integration)
+// ---------------------------------------------------------------------------
+
+export const logisticsOrders = pgTable(
+  "logistics_orders",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    retail_order_id: text("retail_order_id")
+      .notNull()
+      .references(() => orders.order_id),
+    logistics_transaction_id: text("logistics_transaction_id").unique().notNull(),
+    lsp_subscriber_id: text("lsp_subscriber_id"),
+    lsp_provider_id: text("lsp_provider_id"),
+    lsp_order_id: text("lsp_order_id"),
+    pickup_address: jsonb("pickup_address"),
+    delivery_address: jsonb("delivery_address"),
+    package_weight: numeric("package_weight", { precision: 10, scale: 3 }),
+    package_dimensions: jsonb("package_dimensions"),
+    estimated_pickup: timestamp("estimated_pickup", { withTimezone: true }),
+    estimated_delivery: timestamp("estimated_delivery", { withTimezone: true }),
+    actual_pickup: timestamp("actual_pickup", { withTimezone: true }),
+    actual_delivery: timestamp("actual_delivery", { withTimezone: true }),
+    tracking_url: text("tracking_url"),
+    shipping_label_url: text("shipping_label_url"),
+    awb_number: text("awb_number"),
+    state: text("state").default("SEARCHING"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_lo_retail_order").on(table.retail_order_id),
+    index("idx_lo_lsp_order").on(table.lsp_order_id),
+    index("idx_lo_state").on(table.state),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Multi-Domain Subscriber Support
+// ---------------------------------------------------------------------------
+
 export const subscriberDomains = pgTable(
   "subscriber_domains",
   {
@@ -580,3 +808,133 @@ export const subscriberDomains = pgTable(
     index("idx_subscriber_domains_domain_city").on(table.domain, table.city),
   ],
 );
+
+// ---------------------------------------------------------------------------
+// Consent Records (DPDPA 2023 Compliance)
+// ---------------------------------------------------------------------------
+
+export const consentRecords = pgTable(
+  "consent_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    data_principal_id: text("data_principal_id").notNull(),
+    subscriber_id: text("subscriber_id").notNull(),
+    purpose: text("purpose").notNull(),
+    consent_given: boolean("consent_given").notNull(),
+    consent_timestamp: timestamp("consent_timestamp", {
+      withTimezone: true,
+    })
+      .notNull()
+      .defaultNow(),
+    revoked_at: timestamp("revoked_at", { withTimezone: true }),
+    ip_address: text("ip_address"),
+    metadata: jsonb("metadata"),
+  },
+  (table) => [
+    index("idx_consent_principal").on(table.data_principal_id),
+    index("idx_consent_subscriber").on(table.subscriber_id),
+    index("idx_consent_purpose").on(table.data_principal_id, table.purpose),
+  ],
+);
+
+export type ConsentRecord = InferSelectModel<typeof consentRecords>;
+
+// ---------------------------------------------------------------------------
+// Data Erasure Requests (Right to Erasure / DPDPA)
+// ---------------------------------------------------------------------------
+
+export const erasureStatusEnum = pgEnum("erasure_status", [
+  "PENDING",
+  "PROCESSING",
+  "COMPLETED",
+  "FAILED",
+]);
+
+export const erasureRequests = pgTable(
+  "erasure_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    data_principal_id: text("data_principal_id").notNull(),
+    subscriber_id: text("subscriber_id").notNull(),
+    reason: text("reason"),
+    status: erasureStatusEnum("status").default("PENDING"),
+    records_anonymized: integer("records_anonymized").default(0),
+    completed_at: timestamp("completed_at", { withTimezone: true }),
+    created_at: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_erasure_principal").on(table.data_principal_id),
+    index("idx_erasure_status").on(table.status),
+  ],
+);
+
+export type ErasureRequest = InferSelectModel<typeof erasureRequests>;
+
+// ---------------------------------------------------------------------------
+// Indian Law Compliance Tables
+// ---------------------------------------------------------------------------
+
+// Data Breach Reports (DPDPA Section 12 + CERT-In)
+export const dataBreachReports = pgTable("data_breach_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  detected_at: timestamp("detected_at", { withTimezone: true }).notNull(),
+  notified_cert_in_at: timestamp("notified_cert_in_at", { withTimezone: true }),
+  notified_principals_at: timestamp("notified_principals_at", {
+    withTimezone: true,
+  }),
+  description: text("description").notNull(),
+  affected_records: integer("affected_records").default(0),
+  data_categories: text("data_categories").array(),
+  remedial_actions: text("remedial_actions").array(),
+  status: text("status").default("DETECTED"),
+  cert_in_report_id: text("cert_in_report_id"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
+
+export type DataBreachReport = InferSelectModel<typeof dataBreachReports>;
+
+// Security Incidents (IT Act 2000 / CERT-In Directions 2022)
+export const securityIncidents = pgTable("security_incidents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  severity: text("severity").notNull(),
+  type: text("type").notNull(),
+  description: text("description").notNull(),
+  detected_at: timestamp("detected_at", { withTimezone: true }).notNull(),
+  reported_at: timestamp("reported_at", { withTimezone: true }),
+  cert_in_report_id: text("cert_in_report_id"),
+  affected_systems: text("affected_systems").array(),
+  remediation: text("remediation").array(),
+  status: text("status").default("DETECTED"),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+});
+
+export type SecurityIncident = InferSelectModel<typeof securityIncidents>;
+
+// Data Principal Rights Requests (DPDPA Section 8)
+export const dataPrincipalRequests = pgTable(
+  "data_principal_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    principal_id: text("principal_id").notNull(),
+    request_type: text("request_type").notNull(),
+    details: text("details"),
+    requested_at: timestamp("requested_at", { withTimezone: true }).defaultNow(),
+    responded_at: timestamp("responded_at", { withTimezone: true }),
+    response_deadline: timestamp("response_deadline", {
+      withTimezone: true,
+    }).notNull(),
+    status: text("status").default("PENDING"),
+    response: text("response"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_dpr_principal").on(table.principal_id),
+    index("idx_dpr_status").on(table.status),
+    index("idx_dpr_deadline").on(table.response_deadline),
+  ],
+);
+
+export type DataPrincipalRequest = InferSelectModel<typeof dataPrincipalRequests>;

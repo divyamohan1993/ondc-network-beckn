@@ -1,5 +1,5 @@
 import type { Redis } from "ioredis";
-import { createLogger } from "@ondc/shared";
+import { createLogger, validateCatalogItems, validateIndianLawCompliance, buildFeatureListTag, DEFAULT_BPP_FEATURES, sanitizeCatalog } from "@ondc/shared";
 import type { Catalog, Provider, Item, SearchIntent } from "@ondc/shared";
 
 const logger = createLogger("bpp-catalog");
@@ -166,6 +166,7 @@ export async function buildOnSearchResponse(
   subscriberId: string,
   searchIntent: SearchIntent | undefined,
   redis: Redis,
+  domain?: string,
 ): Promise<Catalog | null> {
   const storedCatalog = await getCatalog(subscriberId, redis);
   if (!storedCatalog) {
@@ -310,18 +311,61 @@ export async function buildOnSearchResponse(
     }
   }
 
+  // Build ONDC feature_list tag for provider
+  const featureListTag = buildFeatureListTag(DEFAULT_BPP_FEATURES);
+
+  // Merge feature_list tag into existing provider tags
+  const existingTags: any[] = Array.isArray(storedCatalog.provider.tags) ? [...storedCatalog.provider.tags] : [];
+  const hasFeatureList = existingTags.some((t: any) => t.code === "feature_list");
+  if (!hasFeatureList) {
+    existingTags.push(featureListTag);
+  }
+
   // Build the Beckn Catalog
   const catalog: Catalog = {
     "bpp/descriptor": storedCatalog.provider.descriptor,
     "bpp/providers": [
       {
         ...storedCatalog.provider,
+        tags: existingTags,
         items: filteredItems,
       },
     ],
     // Gap 16: Include catalog expiry in response (ISO 8601 timestamp)
     exp: new Date(Date.now() + ttlMs).toISOString(),
   };
+
+  // Validate catalog items as a sanity check (non-blocking)
+  if (catalog["bpp/providers"]) {
+    for (const provider of catalog["bpp/providers"]) {
+      if (provider.items && provider.items.length > 0) {
+        const validationResult = validateCatalogItems(
+          domain ?? subscriberId.split(":")[0] ?? "ONDC:RET10", // domain from caller or subscriberId hint
+          provider as unknown as Record<string, unknown>,
+          provider.items as unknown as Record<string, unknown>[],
+        );
+        if (!validationResult.valid) {
+          logger.warn(
+            { subscriberId, errors: validationResult.errors },
+            "Catalog validation errors in on_search response",
+          );
+        }
+
+        // Indian law compliance validation (Consumer Protection Act, GST, FSSAI, Legal Metrology)
+        const complianceResult = validateIndianLawCompliance(
+          domain ?? "ONDC:RET10",
+          provider as unknown as Record<string, unknown>,
+          provider.items as unknown as Record<string, unknown>[],
+        );
+        if (!complianceResult.valid) {
+          logger.warn(
+            { subscriberId, errors: complianceResult.errors },
+            "Indian law compliance issues in catalog",
+          );
+        }
+      }
+    }
+  }
 
   // If incremental search was requested, filter out providers with no matching items
   const catalogIncTag = searchIntent?.tags?.find((t) => t.code === "catalog_inc");
@@ -335,7 +379,7 @@ export async function buildOnSearchResponse(
     }
   }
 
-  return catalog;
+  return sanitizeCatalog(catalog);
 }
 
 // ---------------------------------------------------------------------------

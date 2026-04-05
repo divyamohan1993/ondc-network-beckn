@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import type { Redis } from "ioredis";
 import { createLogger } from "../utils/logger.js";
+import { nack } from "../protocol/ack.js";
 
 const logger = createLogger("network-policy");
 
@@ -10,8 +11,8 @@ const logger = createLogger("network-policy");
 
 /** Default maximum response time in milliseconds per action (ONDC mandated). */
 export const ACTION_RESPONSE_SLA: Record<string, number> = {
-  search: 3000,     // 3 seconds for search
-  on_search: 3000,
+  search: 5000,     // 5 seconds for search
+  on_search: 5000,
   select: 5000,     // 5 seconds for select
   on_select: 5000,
   init: 5000,
@@ -119,6 +120,10 @@ export interface NetworkPolicyConfig {
   enforceTags?: boolean;
   /** Allowed domains. If set, rejects requests for unlisted domains. */
   allowedDomains?: string[];
+  /** When true, reject requests missing mandatory tags with a NACK. Default: true in production. */
+  enforceMandatoryTags?: boolean;
+  /** When true, reject responses that violate SLA timing. Useful for gateway. Default: false. */
+  rejectOnSlaViolation?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -141,6 +146,8 @@ export function createNetworkPolicyMiddleware(config: NetworkPolicyConfig = {}) 
     enforceSla = true,
     enforceTags = true,
     allowedDomains,
+    enforceMandatoryTags = process.env.NODE_ENV === "production",
+    rejectOnSlaViolation = false,
   } = config;
 
   // Merge SLA overrides
@@ -186,14 +193,20 @@ export function createNetworkPolicyMiddleware(config: NetworkPolicyConfig = {}) 
       }
     }
 
-    // 2. SLA enforcement - set response deadline header
+    // 2. SLA enforcement - set response deadline header and track timing
     if (enforceSla) {
       const slaMs = slaMap[action];
       if (slaMs) {
         reply.header("X-ONDC-Response-SLA", slaMs);
 
         // Also attach deadline to request for downstream use
-        (request as unknown as Record<string, unknown>)["ondcDeadline"] = Date.now() + slaMs;
+        const reqAny = request as unknown as Record<string, unknown>;
+        reqAny["ondcDeadline"] = Date.now() + slaMs;
+        reqAny["ondcStartTime"] = Date.now();
+        reqAny["ondcSlaMs"] = slaMs;
+
+        // SLA compliance is checked in the onResponse hook registered
+        // via registerSlaResponseHook (must be called once on server init).
       }
     }
 
@@ -210,8 +223,11 @@ export function createNetworkPolicyMiddleware(config: NetworkPolicyConfig = {}) 
               { domain, action, tagCode: rule.code, path: rule.path },
               "Mandatory ONDC tag missing",
             );
-            // Log warning but don't block - tag validation is advisory in many cases
-            // Hard block only if the tag is critical
+
+            if (enforceMandatoryTags) {
+              reply.code(400).send(nack("POLICY-ERROR", "30005", `Missing mandatory tag: ${rule.code}`));
+              return;
+            }
           }
         }
       }
@@ -285,4 +301,35 @@ export function isWithinSla(action: string, responseTimeMs: number): boolean {
   const sla = ACTION_RESPONSE_SLA[action];
   if (!sla) return true; // Unknown action, no SLA
   return responseTimeMs <= sla;
+}
+
+/**
+ * Register a Fastify onResponse hook that checks SLA compliance for requests
+ * processed by the network policy middleware.
+ *
+ * Call this once during server initialization:
+ *   registerSlaResponseHook(fastify);
+ *
+ * The middleware sets ondcStartTime and ondcSlaMs on the request object.
+ * This hook reads those values on response and logs violations.
+ */
+export function registerSlaResponseHook(fastify: { addHook: (hook: string, handler: (request: FastifyRequest, reply: FastifyReply) => Promise<void>) => void }): void {
+  fastify.addHook("onResponse", async (request: FastifyRequest, _reply: FastifyReply) => {
+    const reqAny = request as unknown as Record<string, unknown>;
+    const startTime = reqAny["ondcStartTime"] as number | undefined;
+    const slaMs = reqAny["ondcSlaMs"] as number | undefined;
+    if (startTime && slaMs) {
+      const elapsed = Date.now() - startTime;
+      if (elapsed > slaMs) {
+        const body = request.body as Record<string, unknown> | undefined;
+        const action = (body?.["context"] as Record<string, unknown> | undefined)?.["action"] as string | undefined;
+        logger.warn({
+          action: action ?? "unknown",
+          elapsed,
+          sla: slaMs,
+          violation: true,
+        }, `SLA violation: ${action ?? "unknown"} took ${elapsed}ms (limit: ${slaMs}ms)`);
+      }
+    }
+  });
 }

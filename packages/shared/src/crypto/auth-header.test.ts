@@ -49,7 +49,8 @@ describe("auth-header", () => {
         privateKey: kp.privateKey,
         body: {},
       });
-      const parsed = parseAuthHeader(header);
+      const parsed = parseAuthHeader(header)!;
+      expect(parsed).not.toBeNull();
       const created = parseInt(parsed.created, 10);
       const expires = parseInt(parsed.expires, 10);
       expect(expires - created).toBe(300);
@@ -77,8 +78,8 @@ describe("auth-header", () => {
       };
       const header1 = buildAuthHeader({ ...params, body: { value: 1 } });
       const header2 = buildAuthHeader({ ...params, body: { value: 2 } });
-      const parsed1 = parseAuthHeader(header1);
-      const parsed2 = parseAuthHeader(header2);
+      const parsed1 = parseAuthHeader(header1)!;
+      const parsed2 = parseAuthHeader(header2)!;
       expect(parsed1.signature).not.toBe(parsed2.signature);
     });
   });
@@ -93,7 +94,8 @@ describe("auth-header", () => {
         'headers="(created) (expires) digest",' +
         'signature="dGVzdHNpZw=="';
 
-      const parsed = parseAuthHeader(header);
+      const parsed = parseAuthHeader(header)!;
+      expect(parsed).not.toBeNull();
       expect(parsed.keyId).toBe("sub.com|mykey|ed25519");
       expect(parsed.algorithm).toBe("ed25519");
       expect(parsed.created).toBe("1700000000");
@@ -108,7 +110,8 @@ describe("auth-header", () => {
       const header =
         'Signature keyId="a|b|ed25519",algorithm="ed25519",' +
         'created="1",expires="2",headers="h",signature="sig"';
-      const parsed = parseAuthHeader(header);
+      const parsed = parseAuthHeader(header)!;
+      expect(parsed).not.toBeNull();
       expect(parsed.subscriberId).toBe("a");
       expect(parsed.uniqueKeyId).toBe("b");
     });
@@ -117,22 +120,15 @@ describe("auth-header", () => {
       const header =
         'keyId="a|b|ed25519",algorithm="ed25519",' +
         'created="1",expires="2",headers="h",signature="sig"';
-      const parsed = parseAuthHeader(header);
+      const parsed = parseAuthHeader(header)!;
+      expect(parsed).not.toBeNull();
       expect(parsed.subscriberId).toBe("a");
       expect(parsed.uniqueKeyId).toBe("b");
       expect(parsed.algorithm).toBe("ed25519");
     });
 
-    it("returns empty strings for missing fields", () => {
-      const parsed = parseAuthHeader("");
-      expect(parsed.keyId).toBe("");
-      expect(parsed.algorithm).toBe("");
-      expect(parsed.created).toBe("");
-      expect(parsed.expires).toBe("");
-      expect(parsed.headers).toBe("");
-      expect(parsed.signature).toBe("");
-      expect(parsed.subscriberId).toBe("");
-      expect(parsed.uniqueKeyId).toBe("");
+    it("returns null for empty or malformed headers", () => {
+      expect(parseAuthHeader("")).toBeNull();
     });
 
     it("correctly parses a header built by buildAuthHeader()", () => {
@@ -143,7 +139,8 @@ describe("auth-header", () => {
         privateKey: kp.privateKey,
         body: { action: "search" },
       });
-      const parsed = parseAuthHeader(header);
+      const parsed = parseAuthHeader(header)!;
+      expect(parsed).not.toBeNull();
       expect(parsed.subscriberId).toBe("test.ondc.org");
       expect(parsed.uniqueKeyId).toBe("key-42");
       expect(parsed.algorithm).toBe("ed25519");
@@ -154,11 +151,9 @@ describe("auth-header", () => {
       expect(parsed.expires.length).toBeGreaterThan(0);
     });
 
-    it("handles keyId with only subscriberId (no pipe separators)", () => {
+    it("returns null for keyId without proper pipe separators", () => {
       const header = 'keyId="justsubscriber",algorithm="ed25519",created="1",expires="2",headers="h",signature="s"';
-      const parsed = parseAuthHeader(header);
-      expect(parsed.subscriberId).toBe("justsubscriber");
-      expect(parsed.uniqueKeyId).toBe("");
+      expect(parseAuthHeader(header)).toBeNull();
     });
   });
 
@@ -466,7 +461,8 @@ describe("auth-header", () => {
       });
 
       // Parse
-      const parsed = parseAuthHeader(header);
+      const parsed = parseAuthHeader(header)!;
+      expect(parsed).not.toBeNull();
       expect(parsed.subscriberId).toBe(subscriberId);
       expect(parsed.uniqueKeyId).toBe(uniqueKeyId);
       expect(parsed.algorithm).toBe("ed25519");

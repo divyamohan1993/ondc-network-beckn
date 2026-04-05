@@ -120,7 +120,7 @@ export class RotationScheduler {
         .where(
           and(
             isNotNull(vaultSecrets.rotation_interval_seconds),
-            eq(vaultSecrets.is_deleted, false),
+            eq(vaultSecrets.status, "ACTIVE"),
           ),
         );
 
@@ -167,7 +167,7 @@ export class RotationScheduler {
         .where(
           and(
             eq(vaultSecrets.name, secretName),
-            eq(vaultSecrets.is_deleted, false),
+            eq(vaultSecrets.status, "ACTIVE"),
           ),
         )
         .limit(1);
@@ -244,7 +244,7 @@ export class RotationScheduler {
     const secrets = await this.db
       .select()
       .from(vaultSecrets)
-      .where(eq(vaultSecrets.is_deleted, false));
+      .where(eq(vaultSecrets.status, "ACTIVE"));
 
     const now = new Date();
 
@@ -284,7 +284,7 @@ export class RotationScheduler {
       .where(
         and(
           isNotNull(vaultSecrets.rotation_interval_seconds),
-          eq(vaultSecrets.is_deleted, false),
+          eq(vaultSecrets.status, "ACTIVE"),
         ),
       );
 

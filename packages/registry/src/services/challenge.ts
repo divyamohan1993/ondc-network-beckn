@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import type { Redis } from "ioredis";
 import { encrypt } from "@ondc/shared/crypto";
 
@@ -63,7 +63,11 @@ export async function verifyChallenge(
     return false;
   }
 
-  const isMatch = storedChallenge === answer;
+  const storedBuf = Buffer.from(storedChallenge);
+  const answerBuf = Buffer.from(answer);
+  const isMatch =
+    storedBuf.length === answerBuf.length &&
+    timingSafeEqual(storedBuf, answerBuf);
 
   // Delete the challenge regardless of match (one-time use)
   await redis.del(key);

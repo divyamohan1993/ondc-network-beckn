@@ -7,12 +7,18 @@ import { sha512 } from "@noble/hashes/sha512";
 // ed25519 v2 requires providing a sha-512 implementation
 ed.etc.sha512Sync = (...m) => sha512(ed.etc.concatBytes(...m));
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ??
-  "postgresql://ondc:ondc@localhost:5432/ondc_network";
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error("DATABASE_URL environment variable is required");
+  process.exit(1);
+}
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "admin@ondc-network.local";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "changeme";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+if (!ADMIN_PASSWORD) {
+  console.error("ADMIN_PASSWORD environment variable is required");
+  process.exit(1);
+}
 const ADMIN_NAME = process.env.ADMIN_NAME ?? "ONDC Admin";
 
 // ---------------------------------------------------------------------------
@@ -124,12 +130,15 @@ async function seed() {
     // --- Registry & Gateway (network participants) --------------------------
     console.log("Seeding network participants...");
 
+    const REGISTRY_URL = process.env.REGISTRY_URL || "http://registry:3001";
+    const GATEWAY_URL = process.env.GATEWAY_URL || "http://gateway:3002";
+
     const registryKeys = await generateKeyPairBase64();
     await db
       .insert(subscribers)
       .values({
         subscriber_id: "registry.ondc-network.local",
-        subscriber_url: "http://localhost:3001",
+        subscriber_url: REGISTRY_URL,
         type: "BG",
         signing_public_key: registryKeys.signingPublicKey,
         unique_key_id: "registry-key-01",
@@ -146,7 +155,7 @@ async function seed() {
       .insert(subscribers)
       .values({
         subscriber_id: "gateway.ondc-network.local",
-        subscriber_url: "http://localhost:3002",
+        subscriber_url: GATEWAY_URL,
         type: "BG",
         signing_public_key: gatewayKeys.signingPublicKey,
         unique_key_id: "gateway-key-01",

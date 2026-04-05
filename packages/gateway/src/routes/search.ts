@@ -6,6 +6,9 @@ import {
   ack,
   nack,
   createLogger,
+  buildTraceHeaders,
+  maskPiiInBody,
+  derivePiiKey,
 } from "@ondc/shared";
 import type { BecknRequest, RegistrySubscriber } from "@ondc/shared";
 import type { RegistryClient } from "@ondc/shared";
@@ -24,6 +27,7 @@ export interface SearchRouteConfig {
   gatewayPrivateKey: string;
   gatewaySubscriberId: string;
   gatewayKeyId: string;
+  piiKey?: Buffer;
 }
 
 /**
@@ -55,6 +59,7 @@ export function registerSearchRoute(
     gatewayPrivateKey,
     gatewaySubscriberId,
     gatewayKeyId,
+    piiKey,
   } = config;
 
   fastify.post("/search", async (request: FastifyRequest, reply: FastifyReply) => {
@@ -75,7 +80,7 @@ export function registerSearchRoute(
     // Parse the auth header to extract subscriber info
     const parsed = parseAuthHeader(authHeader);
 
-    if (!parsed.subscriberId) {
+    if (!parsed || !parsed.subscriberId) {
       logger.warn("Invalid Authorization header: missing subscriberId");
       return reply.code(401).send(
         nack("CONTEXT-ERROR", "10001", "Invalid Authorization header: unable to extract subscriberId."),
@@ -89,7 +94,7 @@ export function registerSearchRoute(
     } catch (err) {
       logger.error({ err, subscriberId: parsed.subscriberId }, "Registry lookup failed");
       return reply.code(500).send(
-        nack("INTERNAL-ERROR", "20000", "Failed to look up subscriber in registry."),
+        nack("CONTEXT-ERROR", "10000", "Failed to look up subscriber in registry."),
       );
     }
 
@@ -139,7 +144,8 @@ export function registerSearchRoute(
     // -----------------------------------------------------------------------
     // 3. Extract domain and city for BPP discovery
     // -----------------------------------------------------------------------
-    const { domain, city } = becknRequest.context;
+    const { domain } = becknRequest.context;
+    const city = becknRequest.context.city || (becknRequest.context as any).location?.city?.code || "";
     const transactionId = becknRequest.context.transaction_id;
     const messageId = becknRequest.context.message_id;
 
@@ -171,6 +177,7 @@ export function registerSearchRoute(
           gatewayPrivateKey,
           gatewaySubscriberId,
           gatewayKeyId,
+          { traceId: request.traceId, spanId: request.spanId },
         );
         publishedCount++;
       } catch (err) {
@@ -197,7 +204,7 @@ export function registerSearchRoute(
         bap_id: becknRequest.context.bap_id,
         domain,
         city,
-        request_body: becknRequest,
+        request_body: piiKey ? maskPiiInBody(becknRequest, piiKey) : becknRequest,
         status: "SENT",
         latency_ms: Date.now() - startTime,
       });

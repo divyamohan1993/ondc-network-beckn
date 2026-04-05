@@ -1,5 +1,5 @@
 import * as k8s from "@kubernetes/client-node";
-import { Readable } from "node:stream";
+import { Writable } from "node:stream";
 import { createLogger } from "@ondc/shared";
 
 const logger = createLogger("k8s-client");
@@ -631,7 +631,7 @@ export async function startContainer(id: string): Promise<void> {
       name: owner.name,
       namespace: owner.namespace,
       body: { spec: { replicas: 1 } },
-    }, { headers: { "Content-Type": "application/strategic-merge-patch+json" } });
+    }, { headers: { "Content-Type": "application/strategic-merge-patch+json" } } as any);
 
     logger.info({ id, deployment: owner.name }, "Deployment scaled to 1 replica");
   } catch (err) {
@@ -669,7 +669,7 @@ export async function stopContainer(id: string, _timeout = 10): Promise<void> {
       name: owner.name,
       namespace: owner.namespace,
       body: { spec: { replicas: 0 } },
-    }, { headers: { "Content-Type": "application/strategic-merge-patch+json" } });
+    }, { headers: { "Content-Type": "application/strategic-merge-patch+json" } } as any);
 
     logger.info({ id, deployment: owner.name }, "Deployment scaled to 0 replicas");
   } catch (err) {
@@ -713,7 +713,7 @@ export async function restartContainer(id: string, _timeout = 10): Promise<void>
       name: owner.name,
       namespace: owner.namespace,
       body: restartPatch,
-    }, { headers: { "Content-Type": "application/strategic-merge-patch+json" } });
+    }, { headers: { "Content-Type": "application/strategic-merge-patch+json" } } as any);
 
     logger.info({ id, deployment: owner.name }, "Deployment rolling restart triggered");
   } catch (err) {
@@ -979,21 +979,20 @@ export async function execInContainer(
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
 
-    const stdoutStream = new Readable({
-      read() {
-        // no-op; data is pushed by the WebSocket handler
+    const stdoutStream = new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        stdoutChunks.push(Buffer.from(chunk));
+        callback();
       },
     });
-    const stderrStream = new Readable({
-      read() {
-        // no-op
+    const stderrStream = new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        stderrChunks.push(Buffer.from(chunk));
+        callback();
       },
     });
 
-    stdoutStream.on("data", (chunk: Buffer) => stdoutChunks.push(Buffer.from(chunk)));
-    stderrStream.on("data", (chunk: Buffer) => stderrChunks.push(Buffer.from(chunk)));
-
-    // Run the command via the Kubernetes exec API
+    // Run the command via the Kubernetes exec API (k8s.Exec, not child_process)
     const execStatus = await new Promise<k8s.V1Status>((resolve, reject) => {
       k8sExec
         .exec(
@@ -1001,8 +1000,8 @@ export async function execInContainer(
           name,
           containerName,
           cmd,
-          stdoutStream as unknown as NodeJS.WritableStream,
-          stderrStream as unknown as NodeJS.WritableStream,
+          stdoutStream,
+          stderrStream,
           null, // stdin
           false, // tty
           (status: k8s.V1Status) => {

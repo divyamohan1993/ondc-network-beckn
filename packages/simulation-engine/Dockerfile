@@ -22,5 +22,7 @@ COPY --from=builder /app/node_modules ./node_modules/
 COPY --from=builder /app/packages/shared/node_modules packages/shared/node_modules/
 COPY --from=builder /app/packages/simulation-engine/node_modules packages/simulation-engine/node_modules/
 WORKDIR /app/packages/simulation-engine
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nodejs
+USER nodejs
 EXPOSE 3011
 CMD ["node", "dist/server.js"]

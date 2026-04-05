@@ -179,7 +179,7 @@ describe("createRateLimiterMiddleware", () => {
     // No bap_id in body, but has Authorization header with keyId
     const request = createMockRequest(
       {},
-      { authorization: 'Signature keyId="subscriber-xyz|ed25519|key1" ...' },
+      { authorization: 'Signature keyId="subscriber-xyz|key1|ed25519",algorithm="ed25519",created="1700000000",expires="1700000300",headers="(created) (expires) digest",signature="dGVzdA=="' },
     );
     const reply = createMockReply();
 

@@ -37,8 +37,12 @@ export function createDuplicateDetector(config: DuplicateDetectorConfig) {
     const dedupKey = `msg:dedup:${messageId}`;
 
     try {
-      const exists = await redisClient.get(dedupKey);
-      if (exists) {
+      // Atomic set-if-not-exists to prevent race conditions where concurrent
+      // identical requests all pass the GET check before any SET completes.
+      // SET key value EX ttl NX returns "OK" if set, null if key already exists.
+      const result = await redisClient.set(dedupKey, action ?? "unknown", "EX", ttlSeconds, "NX");
+      if (!result) {
+        // Key already existed — this is a duplicate
         logger.warn({ messageId, action }, "Duplicate message_id detected");
         reply.code(400).send({
           message: { ack: { status: "NACK" } },
@@ -50,11 +54,8 @@ export function createDuplicateDetector(config: DuplicateDetectorConfig) {
         });
         return;
       }
-
-      // Mark this message_id as seen
-      await redisClient.set(dedupKey, action ?? "unknown", "EX", ttlSeconds);
     } catch (err) {
-      // Don't block on Redis errors
+      // Don't block on Redis errors — fail open
       logger.error({ err, messageId }, "Duplicate detector Redis error");
     }
   };

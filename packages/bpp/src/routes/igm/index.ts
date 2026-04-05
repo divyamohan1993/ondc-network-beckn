@@ -15,6 +15,7 @@ import {
   issues,
   createVerifyAuthMiddleware,
   createLogger,
+  EscalationService,
 } from "@ondc/shared";
 import type {
   IssueRequest,
@@ -88,6 +89,8 @@ async function sendIgmCallback(
 export const registerIgmRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance,
 ): Promise<void> => {
+  const escalationService = new EscalationService(fastify.db);
+
   // Auth verification for incoming requests from BAP
   const verifyAuth = createVerifyAuthMiddleware({
     registryUrl: fastify.config.registryUrl,
@@ -135,6 +138,9 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
           resolution_provider: issue.resolution_provider ?? null,
         });
 
+        // Start escalation timer at Level 1
+        await escalationService.createTimer(issue.id);
+
         // Log incoming transaction
         await fastify.db.insert(transactions).values({
           transaction_id: context.transaction_id,
@@ -171,6 +177,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
           bpp_id: fastify.config.bppId,
           bpp_uri: fastify.config.bppUri,
           transaction_id: context.transaction_id,
+          message_id: context.message_id,
         });
 
         const callbackBody: OnIssueRequest = {
@@ -203,6 +210,9 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
             },
           },
         };
+
+        // Mark issue as acknowledged (PROCESSING response sent)
+        await escalationService.markAcknowledged(issue.id);
 
         // Log callback transaction
         await fastify.db.insert(transactions).values({
@@ -241,7 +251,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
       } catch (err) {
         logger.error({ err }, "Error processing IGM issue");
         return reply.code(500).send(
-          nack("INTERNAL-ERROR", "20000", "Internal error processing issue."),
+          nack("DOMAIN-ERROR", "31001", "Internal error processing issue."),
         );
       }
     },
@@ -275,7 +285,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
 
     try {
       const callbackContext = buildContext({
-        domain: domain ?? "nic2004:52110",
+        domain: domain ?? "ONDC:RET10",
         city: city ?? "std:080",
         action: IgmCallbackAction.on_issue,
         bap_id,
@@ -289,6 +299,28 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
         context: callbackContext,
         message: message ?? {},
       };
+
+      // Handle escalation state from message content
+      const issueMsg = message as Record<string, unknown>;
+      const issueData = issueMsg["issue"] as Record<string, unknown> | undefined;
+      if (issueData) {
+        const issueId = issueData["id"] as string | undefined;
+        if (issueId) {
+          const status = issueData["status"] as string | undefined;
+          if (status === IssueStatus.RESOLVED) {
+            await escalationService.markResolved(issueId);
+          } else {
+            const actions = issueData["issue_actions"] as Record<string, unknown> | undefined;
+            const respondentActions = (actions?.["respondent_actions"] ?? []) as Array<Record<string, unknown>>;
+            const latest = respondentActions[respondentActions.length - 1];
+            if (latest) {
+              if (latest["respondent_action"] === RespondentAction.CASCADED) {
+                await escalationService.escalate(issueId);
+              }
+            }
+          }
+        }
+      }
 
       // Log the callback transaction
       await fastify.db.insert(transactions).values({
@@ -322,7 +354,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
     } catch (err) {
       logger.error({ err }, "Error sending on_issue callback");
       return reply.code(500).send(
-        nack("INTERNAL-ERROR", "20000", "Internal error sending on_issue."),
+        nack("DOMAIN-ERROR", "31001", "Internal error sending on_issue."),
       );
     }
   });
@@ -382,6 +414,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
           bpp_id: fastify.config.bppId,
           bpp_uri: fastify.config.bppUri,
           transaction_id: context.transaction_id,
+          message_id: context.message_id,
         });
 
         const callbackBody: OnIssueStatusRequest = {
@@ -440,7 +473,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
       } catch (err) {
         logger.error({ err }, "Error processing issue_status");
         return reply.code(500).send(
-          nack("INTERNAL-ERROR", "20000", "Internal error processing issue_status."),
+          nack("DOMAIN-ERROR", "31001", "Internal error processing issue_status."),
         );
       }
     },
@@ -474,7 +507,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
 
     try {
       const callbackContext = buildContext({
-        domain: domain ?? "nic2004:52110",
+        domain: domain ?? "ONDC:RET10",
         city: city ?? "std:080",
         action: IgmCallbackAction.on_issue_status,
         bap_id,
@@ -521,7 +554,7 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
     } catch (err) {
       logger.error({ err }, "Error sending on_issue_status callback");
       return reply.code(500).send(
-        nack("INTERNAL-ERROR", "20000", "Internal error sending on_issue_status."),
+        nack("DOMAIN-ERROR", "31001", "Internal error sending on_issue_status."),
       );
     }
   });

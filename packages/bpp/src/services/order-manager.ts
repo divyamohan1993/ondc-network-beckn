@@ -3,7 +3,11 @@ import {
   orders,
   orderStateTransitions,
   ratings,
+  OrderState,
+  isValidOrderTransition,
+  isOrderState,
   createLogger,
+  SettlementService,
 } from "@ondc/shared";
 import type { Database } from "@ondc/shared";
 
@@ -43,7 +47,7 @@ export async function processOrderAction(
           bpp_id: context.bpp_id ?? "",
           domain: context.domain,
           city: context.city,
-          state: "CREATED",
+          state: OrderState.Created,
           items: (message.order as any)?.items ?? null,
           provider: (message.order as any)?.provider ?? null,
         });
@@ -51,20 +55,20 @@ export async function processOrderAction(
           db,
           orderId,
           null,
-          "CREATED",
+          OrderState.Created,
           action,
           context.bap_id,
         );
       }
-      return { orderId, state: "CREATED" };
+      return { orderId, state: OrderState.Created };
     }
 
     case "init": {
       await updateOrderState(
         db,
         orderId,
-        "CREATED",
-        "CREATED",
+        OrderState.Created,
+        OrderState.Created,
         action,
         context.bap_id,
         {
@@ -72,15 +76,15 @@ export async function processOrderAction(
           fulfillments: (message.order as any)?.fulfillments ?? null,
         },
       );
-      return { orderId, state: "CREATED" };
+      return { orderId, state: OrderState.Created };
     }
 
     case "confirm": {
       await updateOrderState(
         db,
         orderId,
-        "CREATED",
-        "ACCEPTED",
+        OrderState.Created,
+        OrderState.Accepted,
         action,
         context.bap_id,
         {
@@ -88,7 +92,7 @@ export async function processOrderAction(
           quote: (message.order as any)?.quote ?? null,
         },
       );
-      return { orderId, state: "ACCEPTED" };
+      return { orderId, state: OrderState.Accepted };
     }
 
     case "cancel": {
@@ -99,7 +103,7 @@ export async function processOrderAction(
           db,
           orderId,
           current,
-          "CANCELLED",
+          OrderState.Cancelled,
           action,
           context.bap_id,
           {
@@ -107,8 +111,27 @@ export async function processOrderAction(
               (message.order as any)?.cancellation?.reason?.code ?? null,
           },
         );
+
+        // Trigger refund via withholding pool if order was paid
+        try {
+          const orderAmount = parseFloat(
+            (message.order as any)?.quote?.price?.value ?? "0",
+          );
+          const cancellationCharges = parseFloat(
+            (message.order as any)?.quote?.breakup?.find(
+              (b: any) => b["@ondc/org/title_type"] === "cancellation",
+            )?.price?.value ?? "0",
+          );
+          const refundAmount = orderAmount - cancellationCharges;
+          if (refundAmount > 0) {
+            const settlementService = new SettlementService(db);
+            await settlementService.useWithholdingForRefund(orderId, refundAmount);
+          }
+        } catch (refundErr) {
+          logger.error({ err: refundErr, orderId }, "Refund via withholding failed");
+        }
       }
-      return { orderId, state: "CANCELLED" };
+      return { orderId, state: OrderState.Cancelled };
     }
 
     case "status":
@@ -116,14 +139,14 @@ export async function processOrderAction(
     case "support": {
       // Read-only actions - just return current state
       const state =
-        (await getCurrentState(db, orderId)) ?? "CREATED";
+        (await getCurrentState(db, orderId)) ?? OrderState.Created;
       return { orderId, state };
     }
 
     case "rating": {
       // Persist the rating to the ratings table
       const state =
-        (await getCurrentState(db, orderId)) ?? "CREATED";
+        (await getCurrentState(db, orderId)) ?? OrderState.Created;
       try {
         const ratingValue = (message as any)?.rating_value ??
           (message as any)?.order?.rating?.value;
@@ -163,7 +186,7 @@ export async function processOrderAction(
 
     case "update": {
       const current =
-        (await getCurrentState(db, orderId)) ?? "IN_PROGRESS";
+        (await getCurrentState(db, orderId)) ?? OrderState.InProgress;
       const updateType = (message as any)?.update_target;
       const orderData = (message as any)?.order;
 
@@ -187,7 +210,7 @@ export async function processOrderAction(
           db,
           orderId,
           current,
-          "RETURNED",
+          OrderState.Returned,
           action,
           context.bap_id,
           {
@@ -198,7 +221,7 @@ export async function processOrderAction(
           { orderId, returnReasonCode },
           "Return request processed via update action",
         );
-        return { orderId, state: "RETURNED" };
+        return { orderId, state: OrderState.Returned };
       }
 
       // Handle other updates (fulfillment state changes, item quantity, etc.)
@@ -225,7 +248,7 @@ export async function processOrderAction(
     }
 
     default:
-      return { orderId, state: "CREATED" };
+      return { orderId, state: OrderState.Created };
   }
 }
 
@@ -251,6 +274,18 @@ async function updateOrderState(
   updates?: Record<string, unknown>,
 ): Promise<void> {
   try {
+    // Validate state transition if both states are valid OrderState values
+    if (
+      expectedFrom !== toState &&
+      isOrderState(expectedFrom) &&
+      isOrderState(toState) &&
+      !isValidOrderTransition(expectedFrom as OrderState, toState as OrderState)
+    ) {
+      throw new Error(
+        `Invalid order state transition: ${expectedFrom} -> ${toState} (order: ${orderId}, action: ${action})`,
+      );
+    }
+
     const updateData: Record<string, unknown> = {
       state: toState,
       updated_at: new Date(),

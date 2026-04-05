@@ -1,8 +1,19 @@
 import type { FastifyRequest, FastifyReply, HookHandlerDoneFunction } from "fastify";
 import type { Redis } from "ioredis";
-import { parseAuthHeader, verifyAuthHeader } from "../crypto/auth-header.js";
+import {
+  parseAuthHeader,
+  verifyAuthHeader,
+  parseHybridAuthHeader,
+  verifyHybridAuthHeader,
+} from "../crypto/auth-header.js";
 import { RegistryClient } from "../utils/registry-client.js";
 import { createLogger } from "../utils/logger.js";
+
+declare module "fastify" {
+  interface FastifyRequest {
+    rawBody?: string;
+  }
+}
 
 const logger = createLogger("verify-auth");
 
@@ -45,8 +56,8 @@ export function createVerifyAuthMiddleware(config: VerifyAuthMiddlewareConfig) {
     try {
       const parsed = parseAuthHeader(authHeader);
 
-      if (!parsed.subscriberId) {
-        logger.warn("Invalid Authorization header: missing subscriberId in keyId");
+      if (!parsed || !parsed.subscriberId) {
+        logger.warn("Invalid Authorization header: missing or malformed keyId");
         reply.code(401).send({
           message: { ack: { status: "NACK" } },
           error: {
@@ -58,7 +69,7 @@ export function createVerifyAuthMiddleware(config: VerifyAuthMiddlewareConfig) {
         return;
       }
 
-      const subscriber = await registryClient.lookup(parsed.subscriberId);
+      const subscriber = await registryClient.lookup(parsed.subscriberId, parsed.uniqueKeyId);
 
       if (!subscriber || !subscriber.signing_public_key) {
         logger.warn(
@@ -124,15 +135,33 @@ export function createVerifyAuthMiddleware(config: VerifyAuthMiddlewareConfig) {
         return;
       }
 
-      const isValid = verifyAuthHeader({
-        header: authHeader,
-        body: body as object,
-        publicKey: subscriber.signing_public_key,
-      });
+      // Detect hybrid (PQ) header or classical-only
+      const hybridParsed = parseHybridAuthHeader(authHeader);
+      const isHybrid = hybridParsed?.algorithm === "ed25519+ml-dsa-65";
+
+      let isValid: boolean;
+      if (isHybrid && subscriber.pq_signing_public_key) {
+        // Hybrid verification: both Ed25519 and ML-DSA-65 must pass
+        isValid = verifyHybridAuthHeader({
+          header: authHeader,
+          body: body as object,
+          publicKey: subscriber.signing_public_key,
+          pqPublicKey: subscriber.pq_signing_public_key,
+          rawBody: request.rawBody,
+        });
+      } else {
+        // Classical-only verification
+        isValid = verifyAuthHeader({
+          header: authHeader,
+          body: body as object,
+          publicKey: subscriber.signing_public_key,
+          rawBody: request.rawBody,
+        });
+      }
 
       if (!isValid) {
         logger.warn(
-          { subscriberId: parsed.subscriberId },
+          { subscriberId: parsed.subscriberId, hybrid: isHybrid },
           "Authorization signature verification failed",
         );
         reply.code(401).send({
@@ -147,7 +176,7 @@ export function createVerifyAuthMiddleware(config: VerifyAuthMiddlewareConfig) {
       }
 
       logger.debug(
-        { subscriberId: parsed.subscriberId },
+        { subscriberId: parsed.subscriberId, hybrid: isHybrid },
         "Authorization verified successfully",
       );
     } catch (err) {
@@ -200,8 +229,8 @@ export function createVerifyGatewayAuthMiddleware(config: VerifyAuthMiddlewareCo
     try {
       const parsed = parseAuthHeader(gatewayAuthHeader);
 
-      if (!parsed.subscriberId) {
-        logger.warn("Invalid X-Gateway-Authorization: missing subscriberId");
+      if (!parsed || !parsed.subscriberId) {
+        logger.warn("Invalid X-Gateway-Authorization: missing or malformed subscriberId");
         reply.code(401).send({
           message: { ack: { status: "NACK" } },
           error: {
@@ -213,7 +242,7 @@ export function createVerifyGatewayAuthMiddleware(config: VerifyAuthMiddlewareCo
         return;
       }
 
-      const gateway = await registryClient.lookup(parsed.subscriberId);
+      const gateway = await registryClient.lookup(parsed.subscriberId, parsed.uniqueKeyId);
 
       if (!gateway || !gateway.signing_public_key) {
         logger.warn(
@@ -226,6 +255,39 @@ export function createVerifyGatewayAuthMiddleware(config: VerifyAuthMiddlewareCo
             type: "CONTEXT-ERROR",
             code: "10001",
             message: `Gateway "${parsed.subscriberId}" not found in registry or missing public key.`,
+          },
+        });
+        return;
+      }
+
+      // Check gateway validity period
+      const now = new Date();
+      if (gateway.valid_from && new Date(gateway.valid_from) > now) {
+        logger.warn(
+          { subscriberId: parsed.subscriberId, valid_from: gateway.valid_from },
+          "Gateway validity period has not started",
+        );
+        reply.code(401).send({
+          message: { ack: { status: "NACK" } },
+          error: {
+            type: "CONTEXT-ERROR",
+            code: "10001",
+            message: `Gateway "${parsed.subscriberId}" validity period has not started.`,
+          },
+        });
+        return;
+      }
+      if (gateway.valid_until && new Date(gateway.valid_until) < now) {
+        logger.warn(
+          { subscriberId: parsed.subscriberId, valid_until: gateway.valid_until },
+          "Gateway validity period has expired",
+        );
+        reply.code(401).send({
+          message: { ack: { status: "NACK" } },
+          error: {
+            type: "CONTEXT-ERROR",
+            code: "10001",
+            message: `Gateway "${parsed.subscriberId}" validity period has expired.`,
           },
         });
         return;
@@ -260,15 +322,31 @@ export function createVerifyGatewayAuthMiddleware(config: VerifyAuthMiddlewareCo
         return;
       }
 
-      const isValid = verifyAuthHeader({
-        header: gatewayAuthHeader,
-        body: body as object,
-        publicKey: gateway.signing_public_key,
-      });
+      // Detect hybrid (PQ) header or classical-only
+      const hybridParsed = parseHybridAuthHeader(gatewayAuthHeader);
+      const isHybrid = hybridParsed?.algorithm === "ed25519+ml-dsa-65";
+
+      let isValid: boolean;
+      if (isHybrid && gateway.pq_signing_public_key) {
+        isValid = verifyHybridAuthHeader({
+          header: gatewayAuthHeader,
+          body: body as object,
+          publicKey: gateway.signing_public_key,
+          pqPublicKey: gateway.pq_signing_public_key,
+          rawBody: request.rawBody,
+        });
+      } else {
+        isValid = verifyAuthHeader({
+          header: gatewayAuthHeader,
+          body: body as object,
+          publicKey: gateway.signing_public_key,
+          rawBody: request.rawBody,
+        });
+      }
 
       if (!isValid) {
         logger.warn(
-          { subscriberId: parsed.subscriberId },
+          { subscriberId: parsed.subscriberId, hybrid: isHybrid },
           "X-Gateway-Authorization signature verification failed",
         );
         reply.code(401).send({
@@ -283,7 +361,7 @@ export function createVerifyGatewayAuthMiddleware(config: VerifyAuthMiddlewareCo
       }
 
       logger.debug(
-        { subscriberId: parsed.subscriberId },
+        { subscriberId: parsed.subscriberId, hybrid: isHybrid },
         "Gateway authorization verified successfully",
       );
     } catch (err) {

@@ -23,5 +23,7 @@ COPY --from=builder /app/node_modules ./node_modules/
 COPY --from=builder /app/packages/shared/node_modules packages/shared/node_modules/
 COPY --from=builder /app/packages/mock-server/node_modules packages/mock-server/node_modules/
 WORKDIR /app/packages/mock-server
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nodejs
+USER nodejs
 EXPOSE 3010
 CMD ["node", "dist/server.js"]

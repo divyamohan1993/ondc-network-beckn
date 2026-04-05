@@ -94,8 +94,8 @@ describe("createNetworkPolicyMiddleware", () => {
 
     await handler(request, reply);
 
-    // search action has a 3000 ms SLA
-    expect(reply._state.headers["X-ONDC-Response-SLA"]).toBe(3000);
+    // search action has a 5000 ms SLA
+    expect(reply._state.headers["X-ONDC-Response-SLA"]).toBe(5000);
   });
 
   it("passes requests without body", async () => {
@@ -153,7 +153,7 @@ describe("createNetworkPolicyMiddleware", () => {
 
     await handler(request, reply);
 
-    // Should use the override value, not the default 3000
+    // Should use the override value, not the default 5000
     expect(reply._state.headers["X-ONDC-Response-SLA"]).toBe(1000);
   });
 });
@@ -164,8 +164,8 @@ describe("createNetworkPolicyMiddleware", () => {
 
 describe("getActionSla", () => {
   it("returns correct SLA ms for known actions", () => {
-    expect(getActionSla("search")).toBe(3000);
-    expect(getActionSla("on_search")).toBe(3000);
+    expect(getActionSla("search")).toBe(5000);
+    expect(getActionSla("on_search")).toBe(5000);
     expect(getActionSla("select")).toBe(5000);
     expect(getActionSla("confirm")).toBe(10000);
     expect(getActionSla("status")).toBe(5000);
@@ -179,16 +179,16 @@ describe("getActionSla", () => {
 
 describe("isWithinSla", () => {
   it("returns true when within SLA", () => {
-    // search has 3000 ms SLA
+    // search has 5000 ms SLA
     expect(isWithinSla("search", 1500)).toBe(true);
-    expect(isWithinSla("search", 3000)).toBe(true); // exactly at SLA
+    expect(isWithinSla("search", 5000)).toBe(true); // exactly at SLA
     expect(isWithinSla("confirm", 9999)).toBe(true);
   });
 
   it("returns false when exceeding SLA", () => {
-    // search has 3000 ms SLA
-    expect(isWithinSla("search", 3001)).toBe(false);
-    expect(isWithinSla("search", 5000)).toBe(false);
+    // search has 5000 ms SLA
+    expect(isWithinSla("search", 5001)).toBe(false);
+    expect(isWithinSla("search", 8000)).toBe(false);
     expect(isWithinSla("confirm", 10001)).toBe(false);
   });
 

@@ -25,16 +25,40 @@ import type {
 
 const logger = createLogger("health-monitor");
 
-const DEFAULT_SERVICES: ServiceDefinition[] = [
-  { name: "registry", url: "http://localhost:3001", port: 3001, healthPath: "/health" },
-  { name: "gateway", url: "http://localhost:3002", port: 3002, healthPath: "/health" },
-  { name: "admin", url: "http://localhost:3003", port: 3003, healthPath: "/api/health/check" },
-  { name: "bap", url: "http://localhost:3004", port: 3004, healthPath: "/health" },
-  { name: "bpp", url: "http://localhost:3005", port: 3005, healthPath: "/health" },
-  { name: "vault", url: "http://localhost:3006", port: 3006, healthPath: "/health" },
-  { name: "orchestrator", url: "http://localhost:3007", port: 3007, healthPath: "/health" },
-  { name: "mock-server", url: "http://localhost:3010", port: 3010, healthPath: "/health" },
-];
+/** Build service list from HEALTH_CHECK_URLS env var or fall back to Docker service names. */
+function buildDefaultServices(): ServiceDefinition[] {
+  const envUrls = process.env["HEALTH_CHECK_URLS"];
+  if (envUrls) {
+    return envUrls.split(",").map((entry) => {
+      const trimmed = entry.trim();
+      // Format: "name=url" or just "url"
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx > 0) {
+        const name = trimmed.slice(0, eqIdx);
+        const url = trimmed.slice(eqIdx + 1);
+        const port = parseInt(new URL(url).port || "80", 10);
+        return { name, url, port, healthPath: "/health" };
+      }
+      const url = new URL(trimmed);
+      const name = url.hostname;
+      const port = parseInt(url.port || "80", 10);
+      return { name, url: trimmed, port, healthPath: "/health" };
+    });
+  }
+
+  return [
+    { name: "registry", url: "http://registry:3001", port: 3001, healthPath: "/health" },
+    { name: "gateway", url: "http://gateway:3002", port: 3002, healthPath: "/health" },
+    { name: "admin", url: "http://admin:3003", port: 3003, healthPath: "/api/health/check" },
+    { name: "bap", url: "http://bap:3004", port: 3004, healthPath: "/health" },
+    { name: "bpp", url: "http://bpp:3005", port: 3005, healthPath: "/health" },
+    { name: "vault", url: "http://vault:3006", port: 3006, healthPath: "/health" },
+    { name: "orchestrator", url: "http://orchestrator:3007", port: 3007, healthPath: "/health" },
+    { name: "mock-server", url: "http://mock-server:3010", port: 3010, healthPath: "/health" },
+  ];
+}
+
+const DEFAULT_SERVICES: ServiceDefinition[] = buildDefaultServices();
 
 const DEFAULT_CONFIG: MonitorConfig = {
   checkIntervalMs: 15_000,

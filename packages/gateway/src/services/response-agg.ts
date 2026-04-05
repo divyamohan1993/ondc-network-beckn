@@ -3,6 +3,7 @@ import {
   buildAuthHeader,
   buildGatewayAuthHeader,
   createLogger,
+  buildTraceHeadersFromContext,
 } from "@ondc/shared";
 import type { BecknRequest } from "@ondc/shared";
 
@@ -40,6 +41,7 @@ export class ResponseAggregator {
    * @param gatewayPrivateKey - Gateway's Ed25519 private key (base64).
    * @param gatewaySubscriberId - Gateway's subscriber_id.
    * @param gatewayKeyId - Gateway's unique_key_id.
+   * @param traceContext - Optional trace context for distributed tracing.
    * @returns ForwardResult indicating success or failure.
    */
   async forwardToBAP(
@@ -48,6 +50,7 @@ export class ResponseAggregator {
     gatewayPrivateKey: string,
     gatewaySubscriberId: string,
     gatewayKeyId: string,
+    traceContext?: { traceId: string; spanId: string },
   ): Promise<ForwardResult> {
     const transactionId = onSearchResponse.context.transaction_id;
     const targetUrl = bapUri.replace(/\/+$/, "") + "/on_search";
@@ -74,12 +77,18 @@ export class ResponseAggregator {
         body: onSearchResponse,
       });
 
+      // Build trace headers for outgoing request to BAP
+      const outgoingTraceHeaders = traceContext
+        ? buildTraceHeadersFromContext(traceContext.traceId, traceContext.spanId)
+        : {};
+
       const { statusCode } = await httpRequest(targetUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: authHeader,
           "X-Gateway-Authorization": gatewayAuthHeader,
+          ...outgoingTraceHeaders,
         },
         body: JSON.stringify(onSearchResponse),
         headersTimeout: 10_000,

@@ -29,3 +29,25 @@ export function createLogger(serviceName: string): Logger {
     },
   });
 }
+
+/**
+ * Create a child logger with trace context bound from a Fastify request.
+ *
+ * Every log line produced by the returned logger automatically includes
+ * traceId, spanId, and parentSpanId fields for distributed trace correlation.
+ *
+ * @param request - A Fastify request decorated by the tracing middleware.
+ * @returns A pino child Logger with trace fields bound.
+ */
+export function createRequestLogger(request: {
+  traceId?: string;
+  spanId?: string;
+  parentSpanId?: string;
+}): Logger {
+  const base = createLogger("request");
+  return base.child({
+    traceId: request.traceId,
+    spanId: request.spanId,
+    parentSpanId: request.parentSpanId,
+  });
+}

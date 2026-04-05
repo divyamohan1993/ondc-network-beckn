@@ -90,7 +90,7 @@ export function validateEnvironment(
 
 export const REGISTRY_ENV_REQUIREMENTS: EnvRequirement[] = [
   { name: "DATABASE_URL", required: true, description: "PostgreSQL connection string" },
-  { name: "REDIS_URL", required: false, default: "redis://localhost:6379", description: "Redis connection string" },
+  { name: "REDIS_URL", required: true, description: "Redis connection string" },
   { name: "REGISTRY_PORT", required: false, default: "3001", description: "Registry service port" },
   { name: "REGISTRY_SIGNING_PRIVATE_KEY", required: false, description: "Ed25519 private key for signing" },
   { name: "REGISTRY_ENCRYPTION_PRIVATE_KEY", required: false, description: "X25519 private key for on_subscribe" },
@@ -98,8 +98,8 @@ export const REGISTRY_ENV_REQUIREMENTS: EnvRequirement[] = [
 
 export const GATEWAY_ENV_REQUIREMENTS: EnvRequirement[] = [
   { name: "DATABASE_URL", required: true, description: "PostgreSQL connection string" },
-  { name: "REDIS_URL", required: false, default: "redis://localhost:6379" },
-  { name: "RABBITMQ_URL", required: false, default: "amqp://guest:guest@localhost:5672" },
+  { name: "REDIS_URL", required: true, description: "Redis connection string" },
+  { name: "RABBITMQ_URL", required: true, description: "RabbitMQ connection string" },
   { name: "REGISTRY_URL", required: false, default: "http://localhost:3001" },
   { name: "GATEWAY_PORT", required: false, default: "3002" },
   { name: "GATEWAY_PRIVATE_KEY", required: false, description: "Ed25519 key for signing search fan-out" },
@@ -109,7 +109,7 @@ export const GATEWAY_ENV_REQUIREMENTS: EnvRequirement[] = [
 
 export const BAP_ENV_REQUIREMENTS: EnvRequirement[] = [
   { name: "DATABASE_URL", required: true, description: "PostgreSQL connection string" },
-  { name: "REDIS_URL", required: false, default: "redis://localhost:6379" },
+  { name: "REDIS_URL", required: true, description: "Redis connection string" },
   { name: "REGISTRY_URL", required: false, default: "http://localhost:3001" },
   { name: "BAP_PORT", required: false, default: "3004" },
   { name: "BAP_ID", required: false, default: "bap.example.com", description: "BAP subscriber ID" },
@@ -121,7 +121,7 @@ export const BAP_ENV_REQUIREMENTS: EnvRequirement[] = [
 
 export const BPP_ENV_REQUIREMENTS: EnvRequirement[] = [
   { name: "DATABASE_URL", required: true, description: "PostgreSQL connection string" },
-  { name: "REDIS_URL", required: false, default: "redis://localhost:6379" },
+  { name: "REDIS_URL", required: true, description: "Redis connection string" },
   { name: "REGISTRY_URL", required: false, default: "http://localhost:3001" },
   { name: "BPP_PORT", required: false, default: "3005" },
   { name: "BPP_ID", required: false, default: "bpp.example.com", description: "BPP subscriber ID" },

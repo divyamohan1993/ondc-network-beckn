@@ -58,7 +58,7 @@ export function parseDurationToMs(duration: string): number | null {
  *   - context.transaction_id is a valid UUID
  *   - context.message_id is a valid UUID
  *   - context.timestamp is a valid ISO 8601 timestamp and not stale
- *   - context.ttl is a valid ISO 8601 duration (if present)
+ *   - context.ttl is present and is a valid ISO 8601 duration
  */
 export function validateBecknRequest(body: unknown): ValidationResult {
   const errors: string[] = [];
@@ -196,12 +196,12 @@ export function validateBecknRequest(body: unknown): ValidationResult {
     }
   }
 
-  // TTL validation (if present, must be valid ISO 8601 duration)
+  // TTL validation (required per ONDC spec, must be valid ISO 8601 duration)
   const ttl = context["ttl"];
-  if (ttl !== undefined && ttl !== null) {
-    if (typeof ttl !== "string" || !ISO_DURATION_REGEX.test(ttl)) {
-      errors.push("context.ttl must be a valid ISO 8601 duration (e.g. PT30S).");
-    }
+  if (ttl === undefined || ttl === null || ttl === "") {
+    errors.push("context.ttl is required and must be a valid ISO 8601 duration (e.g. PT30S).");
+  } else if (typeof ttl !== "string" || !ISO_DURATION_REGEX.test(ttl)) {
+    errors.push("context.ttl must be a valid ISO 8601 duration (e.g. PT30S).");
   }
 
   // TTL expiry enforcement: reject messages where timestamp + ttl has elapsed

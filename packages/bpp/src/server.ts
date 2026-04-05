@@ -10,6 +10,11 @@ import {
   createDuplicateDetector,
   createNetworkPolicyMiddleware,
   createFinderFeeValidator,
+  tracingMiddleware,
+  metricsMiddleware,
+  globalMetrics,
+  OndcMetricsReporter,
+  derivePiiKey,
 } from "@ondc/shared";
 import type { Database } from "@ondc/shared";
 import { healthRoute } from "./routes/health.js";
@@ -18,6 +23,7 @@ import { registerCallbackRoutes } from "./routes/callbacks/index.js";
 import { registerProviderApi } from "./api/provider-api.js";
 import { registerIgmRoutes } from "./routes/igm/index.js";
 import { registerRspRoutes } from "./routes/rsp/index.js";
+import { registerLogisticsRoutes } from "./routes/logistics/index.js";
 
 const logger = createLogger("bpp");
 
@@ -26,10 +32,13 @@ const logger = createLogger("bpp");
 // ---------------------------------------------------------------------------
 
 const BPP_PORT = parseInt(process.env["BPP_PORT"] ?? "3005", 10);
-const DATABASE_URL =
-  process.env["DATABASE_URL"] ??
-  "postgresql://ondc:ondc@localhost:5432/ondc_network";
-const REDIS_URL = process.env["REDIS_URL"] ?? "redis://localhost:6379";
+const DATABASE_URL = process.env["DATABASE_URL"];
+const REDIS_URL = process.env["REDIS_URL"];
+
+if (!DATABASE_URL || !REDIS_URL) {
+  logger.error("Missing required environment variables: DATABASE_URL, REDIS_URL");
+  process.exit(1);
+}
 
 // BPP identity configuration
 const BPP_ID = process.env["BPP_ID"] ?? "bpp.example.com";
@@ -39,6 +48,10 @@ const BPP_UNIQUE_KEY_ID = process.env["BPP_UNIQUE_KEY_ID"] ?? "key-1";
 const REGISTRY_URL =
   process.env["REGISTRY_URL"] ?? "http://localhost:3001";
 
+// ONDC network mode: when set, BPP uses real ONDC registry for subscribe/lookup
+const ONDC_REGISTRY_URL = process.env["ONDC_REGISTRY_URL"];
+const registryUrl = ONDC_REGISTRY_URL || REGISTRY_URL;
+
 // ---------------------------------------------------------------------------
 // Extend Fastify instance with shared dependencies
 // ---------------------------------------------------------------------------
@@ -47,6 +60,7 @@ declare module "fastify" {
   interface FastifyInstance {
     db: Database;
     redis: Redis;
+    piiKey: Buffer;
     config: {
       bppId: string;
       bppUri: string;
@@ -66,12 +80,36 @@ async function main(): Promise<void> {
     logger: false, // we use our own pino logger
   });
 
+  // --- Raw body parser (stores raw string for auth signature verification) ---
+  fastify.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    (req, body, done) => {
+      try {
+        (req as any).rawBody = body as string;
+        done(null, JSON.parse(body as string));
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    },
+  );
+
   // --- CORS ---
-  await fastify.register(cors, { origin: true });
+  await fastify.register(cors, { origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || [process.env.DOMAIN ? `https://${process.env.DOMAIN}` : 'http://localhost:3000'] });
 
   // --- PostgreSQL ---
-  const { db, pool } = createDb(DATABASE_URL);
+  const { db, pool } = createDb(DATABASE_URL!);
   fastify.decorate("db", db);
+
+  // Verify database connection at startup
+  try {
+    const client = await pool.connect();
+    client.release();
+    logger.info("PostgreSQL connected");
+  } catch (err) {
+    logger.error({ err }, "Failed to connect to PostgreSQL");
+    throw err;
+  }
 
   // Graceful shutdown: close pool
   fastify.addHook("onClose", async () => {
@@ -80,7 +118,7 @@ async function main(): Promise<void> {
   });
 
   // --- Redis ---
-  const redis = new Redis(REDIS_URL);
+  const redis = new Redis(REDIS_URL!);
   fastify.decorate("redis", redis);
 
   redis.on("error", (err) => {
@@ -90,10 +128,25 @@ async function main(): Promise<void> {
     logger.info("Connected to Redis");
   });
 
+  // Verify Redis connection at startup
+  try {
+    await redis.ping();
+    logger.info("Redis connected");
+  } catch (err) {
+    logger.error({ err }, "Failed to connect to Redis");
+    throw err;
+  }
+
   fastify.addHook("onClose", async () => {
     redis.disconnect();
     logger.info("Redis disconnected");
   });
+
+  // --- PII encryption key ---
+  const piiKey = derivePiiKey(
+    process.env["VAULT_MASTER_KEY"] ?? process.env["PII_ENCRYPTION_KEY"] ?? "default-dev-key",
+  );
+  fastify.decorate("piiKey", piiKey);
 
   // --- Config ---
   fastify.decorate("config", {
@@ -101,7 +154,7 @@ async function main(): Promise<void> {
     bppUri: BPP_URI,
     privateKey: BPP_PRIVATE_KEY,
     uniqueKeyId: BPP_UNIQUE_KEY_ID,
-    registryUrl: REGISTRY_URL,
+    registryUrl: registryUrl,
   });
 
   // --- Error handler ---
@@ -134,6 +187,8 @@ async function main(): Promise<void> {
   });
 
   // Apply middleware globally to all Beckn protocol routes
+  fastify.addHook("preHandler", tracingMiddleware);
+  fastify.addHook("preHandler", metricsMiddleware);
   fastify.addHook("preHandler", rateLimiter);
   fastify.addHook("preHandler", duplicateDetector);
   fastify.addHook("preHandler", networkPolicy);
@@ -146,10 +201,45 @@ async function main(): Promise<void> {
   await fastify.register(registerProviderApi, { prefix: "/api" });
   await fastify.register(registerIgmRoutes, { prefix: "/" });
   await fastify.register(registerRspRoutes, { prefix: "/" });
+  await fastify.register(registerLogisticsRoutes, { prefix: "/" });
+
+  // --- Observability endpoints ---
+  fastify.get("/metrics", async (_request, reply) => {
+    reply.header("Content-Type", "text/plain; version=0.0.4");
+    return globalMetrics.toPrometheus("ondc_bpp");
+  });
+
+  fastify.get("/metrics/json", async () => {
+    return globalMetrics.getMetrics();
+  });
+
+  // --- ONDC metrics reporter ---
+  const metricsUrl = process.env["ONDC_METRICS_URL"];
+  if (metricsUrl) {
+    const reporter = new OndcMetricsReporter({
+      reportingUrl: metricsUrl,
+      subscriberId: BPP_ID,
+      subscriberType: "BPP",
+    });
+    reporter.start(globalMetrics);
+
+    fastify.addHook("onClose", async () => {
+      reporter.stop();
+    });
+  }
 
   // --- Start ---
   await fastify.listen({ port: BPP_PORT, host: "0.0.0.0" });
   logger.info(`BPP Protocol Adapter listening on port ${BPP_PORT}`);
+
+  // --- Graceful shutdown ---
+  const shutdown = async (signal: string) => {
+    logger.info({ signal }, "Received shutdown signal");
+    await fastify.close();
+    process.exit(0);
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
 main().catch((err) => {

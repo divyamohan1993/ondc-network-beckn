@@ -11,23 +11,30 @@
     "./protocol": "./dist/protocol/index.js",
     "./middleware": "./dist/middleware/index.js",
     "./utils": "./dist/utils/index.js",
-    "./db": "./dist/db/index.js"
+    "./db": "./dist/db/index.js",
+    "./services": "./dist/services/index.js"
   },
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:push": "drizzle-kit push"
   },
   "dependencies": {
     "@noble/curves": "^2.0.1",
+    "@noble/post-quantum": "^0.6.0",
     "blakejs": "^1.2.1",
-    "fastify": "^5.7.4",
-    "pino": "^10.3.1",
-    "ioredis": "^5.9.3",
-    "undici": "^7.22.0",
-    "uuid": "^11.1.0",
     "drizzle-orm": "^0.45.1",
-    "pg": "^8.18.0"
+    "fastify": "^5.7.4",
+    "ioredis": "^5.9.3",
+    "pg": "^8.18.0",
+    "pino": "^10.3.1",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-sealedbox-js": "^1.2.0",
+    "undici": "^7.22.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

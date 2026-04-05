@@ -174,7 +174,7 @@ export async function onSubscribeRoutes(fastify: FastifyInstance): Promise<void>
   // Response: { "answer": "decrypted_challenge_string" }
   // -------------------------------------------------------------------------
   const subscriberEncryptionPrivateKey = process.env["REGISTRY_ENCRYPTION_PRIVATE_KEY"] ?? "";
-  const ondcPublicKey = process.env["ONDC_ENCRYPTION_PUBLIC_KEY"] ?? "";
+  const registryEncryptionPublicKey = process.env["REGISTRY_ENCRYPTION_PUBLIC_KEY"] ?? "";
 
   fastify.post<{ Body: OndcOnSubscribeBody }>("/ondc/on_subscribe", async (request, reply) => {
     const body = request.body;
@@ -197,13 +197,13 @@ export async function onSubscribeRoutes(fastify: FastifyInstance): Promise<void>
       // -------------------------------------------------------------------
       // 2. Decrypt the challenge using our X25519 private key
       // -------------------------------------------------------------------
-      if (!subscriberEncryptionPrivateKey) {
-        logger.error("REGISTRY_ENCRYPTION_PRIVATE_KEY not configured");
+      if (!subscriberEncryptionPrivateKey || !registryEncryptionPublicKey) {
+        logger.error("REGISTRY_ENCRYPTION_PRIVATE_KEY or REGISTRY_ENCRYPTION_PUBLIC_KEY not configured");
         return reply.status(500).send({
           error: {
             type: "INTERNAL-ERROR",
             code: "MISSING_KEY",
-            message: "Encryption private key not configured",
+            message: "Encryption key pair not configured",
           },
         });
       }
@@ -211,7 +211,7 @@ export async function onSubscribeRoutes(fastify: FastifyInstance): Promise<void>
       const decryptedChallenge = decrypt(
         body.challenge,
         subscriberEncryptionPrivateKey,
-        ondcPublicKey,
+        registryEncryptionPublicKey,
       );
 
       logger.info(
@@ -220,19 +220,40 @@ export async function onSubscribeRoutes(fastify: FastifyInstance): Promise<void>
       );
 
       // -------------------------------------------------------------------
-      // 3. Log the on_subscribe event
+      // 3. Update subscriber status to SUBSCRIBED
+      // -------------------------------------------------------------------
+      const validFrom = new Date();
+      const validUntil = new Date();
+      validUntil.setFullYear(validUntil.getFullYear() + 1);
+
+      await updateStatusBySubscriberId(db, body.subscriber_id, "SUBSCRIBED", {
+        valid_from: validFrom,
+        valid_until: validUntil,
+      });
+
+      logger.info(
+        { subscriber_id: body.subscriber_id, valid_from: validFrom, valid_until: validUntil },
+        "Subscriber status updated to SUBSCRIBED via ONDC on_subscribe",
+      );
+
+      // -------------------------------------------------------------------
+      // 4. Log the on_subscribe event
       // -------------------------------------------------------------------
       await db.insert(auditLogs).values({
         actor: body.subscriber_id,
-        action: "ONDC_ON_SUBSCRIBE_ANSWERED",
+        action: "ONDC_ON_SUBSCRIBE_COMPLETED",
         resource_type: "subscriber",
         resource_id: body.subscriber_id,
-        details: { source: "ondc_production_format" },
+        details: {
+          source: "ondc_production_format",
+          valid_from: validFrom.toISOString(),
+          valid_until: validUntil.toISOString(),
+        },
         ip_address: request.ip,
       });
 
       // -------------------------------------------------------------------
-      // 4. Return the decrypted challenge as the answer
+      // 5. Return the decrypted challenge as the answer
       // -------------------------------------------------------------------
       return reply.status(200).send({
         answer: decryptedChallenge,

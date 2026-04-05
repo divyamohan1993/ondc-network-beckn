@@ -162,7 +162,7 @@ export async function rotationRoutes(fastify: FastifyInstance): Promise<void> {
           .where(
             and(
               eq(vaultSecrets.name, name),
-              eq(vaultSecrets.is_deleted, false),
+              eq(vaultSecrets.status, "ACTIVE"),
             ),
           )
           .limit(1);
@@ -295,7 +295,7 @@ export async function rotationRoutes(fastify: FastifyInstance): Promise<void> {
           .where(
             and(
               eq(vaultSecrets.name, secretName),
-              eq(vaultSecrets.is_deleted, false),
+              eq(vaultSecrets.status, "ACTIVE"),
             ),
           )
           .limit(1);

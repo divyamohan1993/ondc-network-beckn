@@ -1,14 +1,15 @@
 // ---------------------------------------------------------------------------
 // ONDC Standardized Cancellation Reason Codes
 // ---------------------------------------------------------------------------
-// Buyer cancellation  : 001-016
-// Seller cancellation : 017-020
+// Buyer cancellation   : 001-016
+// Seller cancellation  : 017-020
+// Network/Force cancel : 021-025
 // ---------------------------------------------------------------------------
 
 /**
  * Category of the cancellation initiator.
  */
-export type CancellationCategory = "buyer" | "seller";
+export type CancellationCategory = "buyer" | "seller" | "network";
 
 /**
  * Union type of all valid cancellation reason code strings.
@@ -33,7 +34,12 @@ export type CancellationReasonCode =
   | "017"
   | "018"
   | "019"
-  | "020";
+  | "020"
+  | "021"
+  | "022"
+  | "023"
+  | "024"
+  | "025";
 
 // ---------------------------------------------------------------------------
 // Metadata
@@ -43,6 +49,7 @@ interface CancellationReasonMeta {
   code: CancellationReasonCode;
   category: CancellationCategory;
   description: string;
+  initiator?: string;
 }
 
 const CANCELLATION_REASONS: readonly CancellationReasonMeta[] = [
@@ -69,6 +76,13 @@ const CANCELLATION_REASONS: readonly CancellationReasonMeta[] = [
   { code: "018", category: "seller", description: "Cannot service location" },
   { code: "019", category: "seller", description: "Quality check failed" },
   { code: "020", category: "seller", description: "Other seller reason" },
+
+  // ---- Network/Force cancellation (021-025) --------------------------------
+  { code: "021", description: "Order not fulfilled within SLA", category: "network", initiator: "network" },
+  { code: "022", description: "Network policy violation by seller", category: "network", initiator: "network" },
+  { code: "023", description: "Network policy violation by buyer", category: "network", initiator: "network" },
+  { code: "024", description: "Fraudulent transaction detected", category: "network", initiator: "network" },
+  { code: "025", description: "Regulatory compliance action", category: "network", initiator: "network" },
 ] as const;
 
 /**
@@ -132,13 +146,26 @@ export function getCancellationDescription(code: string): string {
 /**
  * Return all cancellation reasons for a given category.
  *
- * @param category - "buyer" or "seller".
+ * @param category - "buyer", "seller", or "network".
  * @returns Array of `CancellationReasonMeta` entries for that category.
  */
 export function getCancellationReasonsByCategory(
   category: CancellationCategory,
 ): readonly CancellationReasonMeta[] {
   return CANCELLATION_REASONS.filter((r) => r.category === category);
+}
+
+/** Network/force cancellation codes for fast lookup. */
+const NETWORK_CANCELLATION_CODES = new Set<string>(["021", "022", "023", "024", "025"]);
+
+/**
+ * Check whether a cancellation code is a network/force-initiated cancellation.
+ *
+ * @param code - The cancellation reason code (e.g. "021").
+ * @returns `true` if the code is a network/force cancellation (021-025).
+ */
+export function isNetworkCancellation(code: string): boolean {
+  return NETWORK_CANCELLATION_CODES.has(code);
 }
 
 /**

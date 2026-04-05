@@ -8,7 +8,8 @@
     "seed": "tsx src/seed.ts",
     "health-check": "tsx src/health-check.ts",
     "simulate": "tsx src/simulate.ts",
-    "export-data": "tsx src/export-data.ts"
+    "export-data": "tsx src/export-data.ts",
+    "export-pramaan": "tsx src/export-pramaan-logs.ts"
   },
   "dependencies": {
     "@ondc/shared": "workspace:*",

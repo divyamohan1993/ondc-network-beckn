@@ -5,6 +5,7 @@ import { Redis } from "ioredis";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { createLogger } from "@ondc/shared/utils";
+import { tracingMiddleware } from "@ondc/shared/middleware";
 
 import * as vaultSchema from "./db/schema.js";
 import { EncryptionService } from "./services/encryption.js";
@@ -22,22 +23,21 @@ import type { Database } from "./types.js";
 // SQL table definitions (for reference - add to db/init.sql separately)
 // ---------------------------------------------------------------------------
 /*
+CREATE TYPE secret_status AS ENUM ('ACTIVE', 'ROTATING', 'REVOKED');
+
 CREATE TABLE IF NOT EXISTS vault_secrets (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name TEXT UNIQUE NOT NULL,
   encrypted_value TEXT NOT NULL,
   previous_encrypted_value TEXT,
   service TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1,
   rotation_interval_seconds INTEGER,
+  status secret_status NOT NULL DEFAULT 'ACTIVE',
   last_rotated_at TIMESTAMPTZ,
-  is_deleted BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE INDEX IF NOT EXISTS idx_vault_secrets_name ON vault_secrets(name);
-CREATE INDEX IF NOT EXISTS idx_vault_secrets_service ON vault_secrets(service);
 
 CREATE TABLE IF NOT EXISTS vault_tokens (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -50,8 +50,8 @@ CREATE TABLE IF NOT EXISTS vault_tokens (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS idx_vault_tokens_service_id ON vault_tokens(service_id);
-CREATE INDEX IF NOT EXISTS idx_vault_tokens_token_hash ON vault_tokens(token_hash);
+CREATE INDEX idx_vault_tokens_service_id ON vault_tokens(service_id);
+CREATE INDEX idx_vault_tokens_expires_at ON vault_tokens(expires_at);
 
 CREATE TABLE IF NOT EXISTS rotation_hooks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -85,21 +85,25 @@ declare module "fastify" {
 
 const PORT = parseInt(process.env["VAULT_PORT"] ?? "3006", 10);
 const HOST = process.env["VAULT_HOST"] ?? "0.0.0.0";
-const DATABASE_URL =
-  process.env["DATABASE_URL"] ?? "postgresql://ondc:ondc@localhost:5432/ondc";
-const REDIS_URL = process.env["REDIS_URL"] ?? "redis://localhost:6379";
+// ---------------------------------------------------------------------------
+// Logger
+// ---------------------------------------------------------------------------
+
+const logger = createLogger("vault");
+
+const DATABASE_URL = process.env["DATABASE_URL"];
+const REDIS_URL = process.env["REDIS_URL"];
+
+if (!DATABASE_URL || !REDIS_URL) {
+  logger.error("Missing required environment variables: DATABASE_URL, REDIS_URL");
+  process.exit(1);
+}
 const VAULT_MASTER_KEY = process.env["VAULT_MASTER_KEY"];
 const VAULT_TOKEN_SECRET = process.env["VAULT_TOKEN_SECRET"];
 const ROTATION_CHECK_INTERVAL_MS = parseInt(
   process.env["ROTATION_CHECK_INTERVAL_MS"] ?? "60000",
   10,
 );
-
-// ---------------------------------------------------------------------------
-// Logger
-// ---------------------------------------------------------------------------
-
-const logger = createLogger("vault");
 
 // ---------------------------------------------------------------------------
 // Bootstrap
@@ -136,7 +140,7 @@ async function main(): Promise<void> {
   // Register CORS
   // -------------------------------------------------------------------------
   await fastify.register(cors, {
-    origin: process.env["CORS_ORIGIN"] ?? true,
+    origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || [process.env.DOMAIN ? `https://${process.env.DOMAIN}` : 'http://localhost:3000'],
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "x-vault-token"],
   });
@@ -145,7 +149,7 @@ async function main(): Promise<void> {
   // Connect to PostgreSQL via Drizzle (with vault schema)
   // -------------------------------------------------------------------------
   logger.info("Connecting to PostgreSQL...");
-  const pool = new pg.Pool({ connectionString: DATABASE_URL });
+  const pool = new pg.Pool({ connectionString: DATABASE_URL! });
   const db = drizzle(pool, { schema: vaultSchema });
 
   fastify.decorate("db", db);
@@ -164,7 +168,7 @@ async function main(): Promise<void> {
   // Connect to Redis
   // -------------------------------------------------------------------------
   logger.info("Connecting to Redis...");
-  const redis = new Redis(REDIS_URL, {
+  const redis = new Redis(REDIS_URL!, {
     maxRetriesPerRequest: 3,
     retryStrategy(times: number) {
       const delay = Math.min(times * 200, 5000);
@@ -204,6 +208,11 @@ async function main(): Promise<void> {
   );
   fastify.decorate("rotationScheduler", rotationScheduler);
   logger.info("Rotation scheduler initialized");
+
+  // -------------------------------------------------------------------------
+  // Distributed tracing
+  // -------------------------------------------------------------------------
+  fastify.addHook("preHandler", tracingMiddleware);
 
   // -------------------------------------------------------------------------
   // Register route plugins

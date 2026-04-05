@@ -22,6 +22,11 @@ export interface RegistrySubscriber {
   country?: string;
   signing_public_key: string;
   encr_public_key?: string;
+  /** ML-DSA-65 public key for hybrid post-quantum signing (FIPS 204). */
+  pq_signing_public_key?: string;
+  /** ML-KEM-768 public key for hybrid post-quantum encryption (FIPS 203). */
+  pq_encryption_public_key?: string;
+  unique_key_id?: string;
   valid_from?: string;
   valid_until?: string;
   status?: string;
@@ -53,6 +58,9 @@ export class RegistryClient {
   private readonly registryUrl: string;
   private readonly redis: Redis | undefined;
 
+  /** In-memory store of pinned public keys for tamper detection. */
+  private pinnedKeys: Map<string, string> = new Map();
+
   /**
    * @param registryUrl - Base URL of the ONDC registry (e.g. "https://registry.ondc.org").
    * @param redisClient - Optional ioredis client for caching lookup results.
@@ -70,8 +78,8 @@ export class RegistryClient {
    * @param subscriberId - The subscriber_id to look up.
    * @returns The subscriber record, or null if not found.
    */
-  async lookup(subscriberId: string): Promise<RegistrySubscriber | null> {
-    const cacheKey = `${CACHE_PREFIX}lookup:${subscriberId}`;
+  async lookup(subscriberId: string, uniqueKeyId?: string, traceHeaders?: Record<string, string>): Promise<RegistrySubscriber | null> {
+    const cacheKey = `${CACHE_PREFIX}lookup:${subscriberId}${uniqueKeyId ? `:${uniqueKeyId}` : ""}`;
 
     // Try cache first
     if (this.redis) {
@@ -92,8 +100,11 @@ export class RegistryClient {
         `${this.registryUrl}/lookup`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ subscriber_id: subscriberId }),
+          headers: { "Content-Type": "application/json", ...traceHeaders },
+          body: JSON.stringify({
+            subscriber_id: subscriberId,
+            ...(uniqueKeyId ? { unique_key_id: uniqueKeyId } : {}),
+          }),
         },
       );
 
@@ -109,8 +120,28 @@ export class RegistryClient {
       const data = JSON.parse(responseText);
 
       // The registry returns an array of subscribers
-      const subscribers: RegistrySubscriber[] = Array.isArray(data) ? data : [];
-      const subscriber = subscribers[0] ?? null;
+      const allSubscribers: RegistrySubscriber[] = Array.isArray(data) ? data : [];
+      const subscriber = uniqueKeyId
+        ? allSubscribers.find((s) => s.unique_key_id === uniqueKeyId) ?? null
+        : allSubscribers[0] ?? null;
+
+      // Key pinning: detect unexpected key changes (possible registry compromise)
+      if (subscriber) {
+        const pinKey = `${subscriberId}:${uniqueKeyId || "default"}`;
+        const pinned = this.pinnedKeys.get(pinKey);
+        if (pinned && pinned !== subscriber.signing_public_key) {
+          logger.error(
+            {
+              subscriberId,
+              uniqueKeyId,
+              pinnedKey: pinned,
+              registryKey: subscriber.signing_public_key,
+            },
+            "KEY PIN VIOLATION: Registry returned different key than pinned. Possible registry compromise.",
+          );
+        }
+        this.pinnedKeys.set(pinKey, subscriber.signing_public_key);
+      }
 
       // Cache the result
       if (subscriber && this.redis) {
@@ -144,6 +175,7 @@ export class RegistryClient {
     domain: string,
     city: string,
     type?: string,
+    traceHeaders?: Record<string, string>,
   ): Promise<RegistrySubscriber[]> {
     const cacheKey = `${CACHE_PREFIX}domain:${domain}:${city}:${type ?? "all"}`;
 
@@ -170,7 +202,7 @@ export class RegistryClient {
         `${this.registryUrl}/lookup`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...traceHeaders },
           body: JSON.stringify(requestBody),
         },
       );
@@ -213,13 +245,13 @@ export class RegistryClient {
    * @param params - Subscription parameters including subscriber_id, signing keys, etc.
    * @returns The response body from the registry, or null on failure.
    */
-  async subscribe(params: SubscribeParams): Promise<unknown> {
+  async subscribe(params: SubscribeParams, traceHeaders?: Record<string, string>): Promise<unknown> {
     try {
       const { statusCode, body } = await httpRequest(
         `${this.registryUrl}/subscribe`,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...traceHeaders },
           body: JSON.stringify(params),
         },
       );

@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import type { Redis } from "ioredis";
 import { createLogger } from "../utils/logger.js";
+import { parseAuthHeader } from "../crypto/auth-header.js";
 
 const logger = createLogger("rate-limiter");
 
@@ -34,22 +35,24 @@ export function createRateLimiterMiddleware(config: RateLimiterConfig) {
     request: FastifyRequest,
     reply: FastifyReply,
   ): Promise<void> {
-    // Try to extract subscriber ID from body context or auth header
+    // Extract subscriber ID with priority:
+    // 1. From signed Authorization header (verified, trustworthy)
+    // 2. From body context (unsigned, can be spoofed before auth verification)
     let subscriberId: string | undefined;
 
-    const body = request.body as Record<string, unknown> | undefined;
-    if (body?.["context"] && typeof body["context"] === "object") {
-      const context = body["context"] as Record<string, unknown>;
-      subscriberId = context["bap_id"] as string | undefined;
+    const authHeader = request.headers["authorization"];
+    if (typeof authHeader === "string") {
+      const parsed = parseAuthHeader(authHeader);
+      if (parsed?.subscriberId) {
+        subscriberId = parsed.subscriberId;
+      }
     }
 
     if (!subscriberId) {
-      const authHeader = request.headers["authorization"];
-      if (typeof authHeader === "string") {
-        const match = /keyId="([^"|]+)/.exec(authHeader);
-        if (match) {
-          subscriberId = match[1]?.split("|")[0];
-        }
+      const body = request.body as Record<string, unknown> | undefined;
+      if (body?.["context"] && typeof body["context"] === "object") {
+        const context = body["context"] as Record<string, unknown>;
+        subscriberId = context["bap_id"] as string | undefined;
       }
     }
 

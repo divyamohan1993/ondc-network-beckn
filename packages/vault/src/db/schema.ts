@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgEnum,
   uuid,
   text,
   boolean,
@@ -10,29 +11,32 @@ import {
 } from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+export const secretStatusEnum = pgEnum("secret_status", [
+  "ACTIVE",
+  "ROTATING",
+  "REVOKED",
+]);
+
+// ---------------------------------------------------------------------------
 // vault_secrets - Encrypted secrets storage
 // ---------------------------------------------------------------------------
 
-export const vaultSecrets = pgTable(
-  "vault_secrets",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    name: text("name").unique().notNull(),
-    encrypted_value: text("encrypted_value").notNull(),
-    previous_encrypted_value: text("previous_encrypted_value"),
-    service: text("service").notNull(),
-    version: integer("version").default(1).notNull(),
-    rotation_interval_seconds: integer("rotation_interval_seconds"),
-    last_rotated_at: timestamp("last_rotated_at", { withTimezone: true }),
-    is_deleted: boolean("is_deleted").default(false).notNull(),
-    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
-    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
-  },
-  (table) => [
-    index("idx_vault_secrets_name").on(table.name),
-    index("idx_vault_secrets_service").on(table.service),
-  ],
-);
+export const vaultSecrets = pgTable("vault_secrets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: text("name").unique().notNull(),
+  encrypted_value: text("encrypted_value").notNull(),
+  previous_encrypted_value: text("previous_encrypted_value"),
+  service: text("service").notNull(),
+  version: integer("version").notNull().default(1),
+  rotation_interval_seconds: integer("rotation_interval_seconds"),
+  status: secretStatusEnum("status").notNull().default("ACTIVE"),
+  last_rotated_at: timestamp("last_rotated_at", { withTimezone: true }),
+  created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+});
 
 // ---------------------------------------------------------------------------
 // vault_tokens - Access token metadata (hash stored, not raw token)
@@ -52,7 +56,7 @@ export const vaultTokens = pgTable(
   },
   (table) => [
     index("idx_vault_tokens_service_id").on(table.service_id),
-    index("idx_vault_tokens_token_hash").on(table.token_hash),
+    index("idx_vault_tokens_expires_at").on(table.expires_at),
   ],
 );
 

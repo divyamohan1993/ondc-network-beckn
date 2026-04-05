@@ -230,9 +230,9 @@ describe("formatOfficialBecknError", () => {
     expect(result.message).toBe("Payment failed");
   });
 
-  it("should return TECHNICAL-ERROR for seller policy enforcement (50000-range)", () => {
+  it("should return POLICY-ERROR for seller policy enforcement (50000-range)", () => {
     const result = formatOfficialBecknError(OndcOfficialErrorCode.SELLER_CANCELLATION_REJECTED);
-    expect(result.type).toBe("TECHNICAL-ERROR");
+    expect(result.type).toBe("POLICY-ERROR");
     expect(result.code).toBe("50001");
     expect(result.message).toBe("Cancellation rejected");
   });

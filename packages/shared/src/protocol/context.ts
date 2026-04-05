@@ -56,9 +56,9 @@ export function buildContext(params: BuildContextParams): BecknContext {
     },
     action: params.action,
     // v1.1 version field
-    core_version: params.core_version ?? "1.2.0",
+    core_version: params.core_version ?? "1.2.5",
     // v1.2 version field
-    version: params.core_version ?? "1.2.0",
+    version: params.core_version ?? "1.2.5",
     bap_id: params.bap_id,
     bap_uri: params.bap_uri,
     bpp_id: params.bpp_id,

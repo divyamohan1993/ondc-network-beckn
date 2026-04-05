@@ -14,7 +14,12 @@ export * from "./schema.js";
  *   `pool` so callers can manage the connection lifecycle.
  */
 export function createDb(connectionString: string) {
-  const pool = new pg.Pool({ connectionString });
+  const pool = new pg.Pool({
+    connectionString,
+    max: parseInt(process.env["DB_POOL_MAX"] || "20", 10),
+    idleTimeoutMillis: parseInt(process.env["DB_POOL_IDLE_TIMEOUT"] || "30000", 10),
+    connectionTimeoutMillis: parseInt(process.env["DB_POOL_CONNECTION_TIMEOUT"] || "5000", 10),
+  });
 
   const db = drizzle(pool, { schema });
 
