@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: '/shop',
   output: process.env.DOCKER_BUILD === '1' ? 'standalone' : undefined,
   images: {
     remotePatterns: [

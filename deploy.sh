@@ -253,33 +253,26 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
-    # Buyer app at /shop
-    location /shop/ {
-        proxy_pass http://127.0.0.1:3012/;
+    # Buyer app at /shop (basePath: /shop)
+    location /shop {
+        proxy_pass http://127.0.0.1:3012;
         proxy_set_header Host \$host;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
-    location = /shop { return 301 /shop/; }
-    location /shop/_next/ { proxy_pass http://127.0.0.1:3012/_next/; proxy_set_header Host \$host; }
 
-    # Seller dashboard
-    location /seller/ {
-        proxy_pass http://127.0.0.1:3013/;
+    # Seller dashboard (basePath: /seller)
+    location /seller {
+        proxy_pass http://127.0.0.1:3013;
         proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
-    location = /seller { return 301 /seller/; }
-    location /seller/_next/ { proxy_pass http://127.0.0.1:3013/_next/; proxy_set_header Host \$host; }
 
-    # Admin panel
-    location /admin/ {
-        proxy_pass http://127.0.0.1:3014/;
+    # Admin panel (basePath: /admin)
+    location /admin {
+        proxy_pass http://127.0.0.1:3014;
         proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
-    location = /admin { return 301 /admin/; }
     location /admin/_next/ { proxy_pass http://127.0.0.1:3014/_next/; proxy_set_header Host \$host; }
 
     # Docs + Pitch (served by docs app, already handled by / catch-all, but explicit for _next)

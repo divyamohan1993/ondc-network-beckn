@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: '/seller',
   output: process.env.DOCKER_BUILD === '1' ? 'standalone' : undefined,
   headers: async () => [
     {

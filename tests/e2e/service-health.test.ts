@@ -102,8 +102,8 @@ describe("Service Health Configuration", () => {
       expect(content).toContain("/gateway/");
       expect(content).toContain("/api/bap/");
       expect(content).toContain("/api/bpp/");
-      expect(content).toContain("/seller/");
-      expect(content).toContain("/admin/");
+      expect(content).toContain("/seller");
+      expect(content).toContain("/admin");
       expect(content).toContain("/pitch");
     });
   });
