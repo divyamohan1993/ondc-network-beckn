@@ -15,6 +15,8 @@ import {
   createVerifyAuthMiddleware,
   createLogger,
   EscalationService,
+  NotificationService,
+  NotificationEvent,
 } from "@ondc/shared";
 import type {
   IssueRequest,
@@ -202,6 +204,39 @@ export const registerIgmRoutes: FastifyPluginAsync = async (
               await escalationService.markAcknowledged(issue.id);
             }
           }
+        }
+
+        // --- Buyer notifications for issue status changes ---
+        try {
+          const orderId = issue.order_details?.id ?? context.transaction_id;
+          const buyerPhone = issue.complainant_info?.contact?.phone;
+          const buyerEmail = issue.complainant_info?.contact?.email;
+
+          if (issue.status === IssueStatus.RESOLVED) {
+            fastify.notifications
+              .send(
+                NotificationService.buildOrderNotification(
+                  NotificationEvent.ISSUE_RESOLVED,
+                  { orderId, buyerPhone, buyerEmail },
+                ),
+              )
+              .catch((err: unknown) => logger.error({ err, orderId }, "ISSUE_RESOLVED notification failed"));
+          }
+
+          const respondentActions = issue.issue_actions?.respondent_actions ?? [];
+          const latestAction = respondentActions[respondentActions.length - 1];
+          if (latestAction?.respondent_action === RespondentAction.CASCADED) {
+            fastify.notifications
+              .send(
+                NotificationService.buildOrderNotification(
+                  NotificationEvent.ISSUE_ESCALATED,
+                  { orderId, buyerPhone, buyerEmail },
+                ),
+              )
+              .catch((err: unknown) => logger.error({ err, orderId }, "ISSUE_ESCALATED notification failed"));
+          }
+        } catch (notifErr) {
+          logger.error({ err: notifErr }, "IGM notification dispatch failed");
         }
 
         // Log the callback transaction

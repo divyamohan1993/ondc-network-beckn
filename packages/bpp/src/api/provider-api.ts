@@ -24,6 +24,7 @@ import {
   LogisticsOrderState,
 } from "../services/logistics-client.js";
 import type { LogisticsConfig } from "../services/logistics-client.js";
+import { InventoryService } from "../services/inventory-service.js";
 
 const logger = createLogger("bpp-provider-api");
 
@@ -60,6 +61,25 @@ interface FulfillBody {
 interface WebhookBody {
   url: string;
   events: string[];
+}
+
+interface InventorySetBody {
+  items: Array<{
+    item_id: string;
+    stock_quantity: number;
+    sku?: string;
+    low_stock_threshold?: number;
+    max_quantity_per_order?: number;
+  }>;
+  provider_id?: string;
+}
+
+interface InventoryUpdateBody {
+  stock_quantity?: number;
+  sku?: string;
+  low_stock_threshold?: number;
+  max_quantity_per_order?: number;
+  provider_id?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -616,6 +636,172 @@ export const registerProviderApi: FastifyPluginAsync = async (
         logger.error({ err, orderId }, "Error retrieving logistics quotes");
         return reply.code(500).send({
           error: { code: "INTERNAL_ERROR", message: "Internal error retrieving logistics quotes.", details: [] },
+        });
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /api/inventory — set stock for multiple items
+  // -------------------------------------------------------------------------
+  fastify.post<{ Body: InventorySetBody }>(
+    "/inventory",
+    async (request, reply) => {
+      const { items, provider_id } = request.body;
+
+      if (!items || !Array.isArray(items) || items.length === 0) {
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: "items[] is required and must not be empty.", details: [] },
+        });
+      }
+
+      const providerId = provider_id ?? fastify.config.bppId;
+      const inventoryService = new InventoryService(fastify.db);
+
+      try {
+        for (const item of items) {
+          if (!item.item_id || item.stock_quantity == null) {
+            return reply.code(400).send({
+              error: { code: "BAD_REQUEST", message: "Each item requires item_id and stock_quantity.", details: [] },
+            });
+          }
+          await inventoryService.setStock(providerId, item.item_id, item.stock_quantity, {
+            sku: item.sku,
+            lowStockThreshold: item.low_stock_threshold,
+            maxQuantityPerOrder: item.max_quantity_per_order,
+          });
+        }
+
+        return reply.code(200).send({
+          status: "updated",
+          provider_id: providerId,
+          item_count: items.length,
+        });
+      } catch (err) {
+        logger.error({ err }, "Error setting inventory");
+        return reply.code(500).send({
+          error: { code: "INTERNAL_ERROR", message: "Internal error setting inventory.", details: [] },
+        });
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /api/inventory — get stock levels for a provider
+  // -------------------------------------------------------------------------
+  fastify.get<{ Querystring: { provider_id?: string } }>(
+    "/inventory",
+    async (request, reply) => {
+      const providerId =
+        (request.query as Record<string, string>).provider_id ??
+        fastify.config.bppId;
+      const inventoryService = new InventoryService(fastify.db);
+
+      try {
+        const stock = await inventoryService.getStock(providerId);
+
+        return reply.code(200).send({
+          provider_id: providerId,
+          items: stock.map((s) => ({
+            item_id: s.item_id,
+            sku: s.sku,
+            stock_quantity: s.stock_quantity,
+            reserved_quantity: s.reserved_quantity,
+            available_quantity: s.stock_quantity - s.reserved_quantity,
+            low_stock_threshold: s.low_stock_threshold,
+            max_quantity_per_order: s.max_quantity_per_order,
+            track_inventory: s.track_inventory,
+            updated_at: s.updated_at,
+          })),
+          total: stock.length,
+        });
+      } catch (err) {
+        logger.error({ err }, "Error retrieving inventory");
+        return reply.code(500).send({
+          error: { code: "INTERNAL_ERROR", message: "Internal error retrieving inventory.", details: [] },
+        });
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /api/inventory/low-stock — get items below threshold
+  // -------------------------------------------------------------------------
+  fastify.get<{ Querystring: { provider_id?: string } }>(
+    "/inventory/low-stock",
+    async (request, reply) => {
+      const providerId =
+        (request.query as Record<string, string>).provider_id ??
+        fastify.config.bppId;
+      const inventoryService = new InventoryService(fastify.db);
+
+      try {
+        const lowStock = await inventoryService.getLowStockItems(providerId);
+
+        return reply.code(200).send({
+          provider_id: providerId,
+          items: lowStock.map((s) => ({
+            item_id: s.item_id,
+            sku: s.sku,
+            stock_quantity: s.stock_quantity,
+            reserved_quantity: s.reserved_quantity,
+            available_quantity: s.stock_quantity - s.reserved_quantity,
+            low_stock_threshold: s.low_stock_threshold,
+            updated_at: s.updated_at,
+          })),
+          total: lowStock.length,
+        });
+      } catch (err) {
+        logger.error({ err }, "Error retrieving low-stock items");
+        return reply.code(500).send({
+          error: { code: "INTERNAL_ERROR", message: "Internal error retrieving low-stock items.", details: [] },
+        });
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // PUT /api/inventory/:itemId — update stock for a single item
+  // -------------------------------------------------------------------------
+  fastify.put<{ Params: { itemId: string }; Body: InventoryUpdateBody }>(
+    "/inventory/:itemId",
+    async (request, reply) => {
+      const { itemId } = request.params;
+      const { stock_quantity, sku, low_stock_threshold, max_quantity_per_order, provider_id } =
+        request.body;
+
+      if (!itemId) {
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: "itemId is required.", details: [] },
+        });
+      }
+
+      if (stock_quantity == null) {
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: "stock_quantity is required.", details: [] },
+        });
+      }
+
+      const providerId = provider_id ?? fastify.config.bppId;
+      const inventoryService = new InventoryService(fastify.db);
+
+      try {
+        await inventoryService.setStock(providerId, itemId, stock_quantity, {
+          sku,
+          lowStockThreshold: low_stock_threshold,
+          maxQuantityPerOrder: max_quantity_per_order,
+        });
+
+        return reply.code(200).send({
+          status: "updated",
+          provider_id: providerId,
+          item_id: itemId,
+          stock_quantity,
+        });
+      } catch (err) {
+        logger.error({ err, itemId }, "Error updating inventory item");
+        return reply.code(500).send({
+          error: { code: "INTERNAL_ERROR", message: "Internal error updating inventory.", details: [] },
         });
       }
     },

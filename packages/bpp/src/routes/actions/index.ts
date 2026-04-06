@@ -33,6 +33,7 @@ import {
   searchLogistics,
 } from "../../services/logistics-client.js";
 import type { LogisticsConfig, LogisticsSearchParams } from "../../services/logistics-client.js";
+import { InventoryService } from "../../services/inventory-service.js";
 
 const logger = createLogger("bpp-actions");
 
@@ -219,12 +220,13 @@ export const registerActionRoutes: FastifyPluginAsync = async (
   ): Promise<void> {
     const { context, message } = incomingRequest;
 
-    // Build on_search catalog
+    // Build on_search catalog (with inventory stock enrichment)
     const catalog = await buildOnSearchResponse(
       server.config.bppId,
       message.intent,
       server.redis,
       context.domain,
+      server.db,
     );
 
     // Build callback context (reuse originating message_id per ONDC spec)
@@ -309,6 +311,154 @@ export const registerActionRoutes: FastifyPluginAsync = async (
     callbackAction: string,
   ): Promise<void> {
     const { context, message } = incomingRequest;
+
+    // Inventory management
+    const inventoryService = new InventoryService(server.db);
+    const orderItems: { id: string; quantity: number }[] =
+      ((message.order as any)?.items ?? []).map((i: any) => ({
+        id: i.id,
+        quantity: parseInt(i.quantity?.count ?? i.quantity?.selected?.count ?? "1", 10),
+      }));
+    const providerId =
+      (message.order as any)?.provider?.id ?? server.config.bppId;
+
+    // Select: check availability before quoting
+    if (action === BecknAction.select && orderItems.length > 0) {
+      const availability = await inventoryService.checkAvailability(
+        providerId,
+        orderItems,
+      );
+      if (!availability.available) {
+        logger.warn(
+          { providerId, unavailable: availability.unavailableItems },
+          "Inventory check failed during select",
+        );
+        // Build NACK callback for insufficient stock
+        const nackContext = buildContext({
+          domain: context.domain,
+          city: context.city,
+          action: callbackAction,
+          bap_id: context.bap_id,
+          bap_uri: context.bap_uri,
+          bpp_id: server.config.bppId,
+          bpp_uri: server.config.bppUri,
+          transaction_id: context.transaction_id,
+          message_id: context.message_id,
+        });
+        const nackBody = {
+          context: nackContext,
+          message: {},
+          error: {
+            type: "DOMAIN-ERROR",
+            code: "40001",
+            message: "Quantity unavailable for items: " +
+              availability.unavailableItems
+                .map(
+                  (u) => `${u.id} (requested: ${u.requested}, available: ${u.available})`,
+                )
+                .join(", "),
+          },
+        } as BecknRequest & { error: { type: string; code: string; message: string } };
+        await server.db.insert(transactions).values({
+          transaction_id: nackContext.transaction_id,
+          message_id: nackContext.message_id,
+          action: callbackAction,
+          bap_id: nackContext.bap_id,
+          bpp_id: nackContext.bpp_id,
+          domain: nackContext.domain,
+          city: nackContext.city,
+          request_body: maskPiiInBody(nackBody, fastify.piiKey),
+          status: "NACK",
+        });
+        await sendCallback(
+          context.bap_uri,
+          callbackAction,
+          nackBody,
+          server.config.privateKey,
+          server.config.bppId,
+          server.config.uniqueKeyId,
+        );
+        return;
+      }
+    }
+
+    // Init: reserve stock
+    if (action === BecknAction.init && orderItems.length > 0) {
+      const reserved = await inventoryService.reserveStock(
+        providerId,
+        orderItems,
+      );
+      if (!reserved) {
+        logger.warn(
+          { providerId, transactionId: context.transaction_id },
+          "Stock reservation failed during init",
+        );
+        const nackContext = buildContext({
+          domain: context.domain,
+          city: context.city,
+          action: callbackAction,
+          bap_id: context.bap_id,
+          bap_uri: context.bap_uri,
+          bpp_id: server.config.bppId,
+          bpp_uri: server.config.bppUri,
+          transaction_id: context.transaction_id,
+          message_id: context.message_id,
+        });
+        const nackBody = {
+          context: nackContext,
+          message: {},
+          error: {
+            type: "DOMAIN-ERROR",
+            code: "40001",
+            message: "Unable to reserve stock. Items may no longer be available in the requested quantity.",
+          },
+        } as BecknRequest & { error: { type: string; code: string; message: string } };
+        await server.db.insert(transactions).values({
+          transaction_id: nackContext.transaction_id,
+          message_id: nackContext.message_id,
+          action: callbackAction,
+          bap_id: nackContext.bap_id,
+          bpp_id: nackContext.bpp_id,
+          domain: nackContext.domain,
+          city: nackContext.city,
+          request_body: maskPiiInBody(nackBody, fastify.piiKey),
+          status: "NACK",
+        });
+        await sendCallback(
+          context.bap_uri,
+          callbackAction,
+          nackBody,
+          server.config.privateKey,
+          server.config.bppId,
+          server.config.uniqueKeyId,
+        );
+        return;
+      }
+    }
+
+    // Confirm: convert reservation to actual stock decrement
+    if (action === BecknAction.confirm && orderItems.length > 0) {
+      try {
+        await inventoryService.confirmStock(providerId, orderItems);
+      } catch (err) {
+        logger.error(
+          { err, providerId, transactionId: context.transaction_id },
+          "Stock confirmation failed",
+        );
+      }
+    }
+
+    // Cancel: restore stock
+    if (action === BecknAction.cancel && orderItems.length > 0) {
+      try {
+        await inventoryService.restoreStock(providerId, orderItems);
+      } catch (err) {
+        logger.error(
+          { err, providerId, transactionId: context.transaction_id },
+          "Stock restoration failed on cancel",
+        );
+      }
+    }
 
     // Notify seller app webhook (fire-and-forget)
     notifyWebhook(

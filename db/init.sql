@@ -824,3 +824,63 @@ CREATE TABLE IF NOT EXISTS data_principal_requests (
 CREATE INDEX IF NOT EXISTS idx_dpr_principal ON data_principal_requests(principal_id);
 CREATE INDEX IF NOT EXISTS idx_dpr_status ON data_principal_requests(status);
 CREATE INDEX IF NOT EXISTS idx_dpr_deadline ON data_principal_requests(response_deadline);
+
+-- ============================================
+-- Payments (Payment Gateway Integration)
+-- ============================================
+
+DO $$ BEGIN
+  CREATE TYPE payment_status AS ENUM ('CREATED', 'AUTHORIZED', 'CAPTURED', 'FAILED', 'REFUNDED', 'PARTIALLY_REFUNDED');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+CREATE TABLE IF NOT EXISTS payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id TEXT NOT NULL,
+  gateway_order_id TEXT,
+  gateway_payment_id TEXT,
+  amount INTEGER NOT NULL, -- in paise (INR * 100)
+  currency TEXT DEFAULT 'INR',
+  status payment_status DEFAULT 'CREATED',
+  method TEXT,
+  customer_name TEXT,
+  customer_email TEXT,
+  customer_phone TEXT,
+  payment_url TEXT,
+  gateway_signature TEXT,
+  refund_id TEXT,
+  refund_amount INTEGER DEFAULT 0,
+  refund_status TEXT,
+  error_code TEXT,
+  error_description TEXT,
+  metadata JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_payments_order_id ON payments(order_id);
+CREATE INDEX IF NOT EXISTS idx_payments_gateway_order ON payments(gateway_order_id);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+
+-- ============================================
+-- Inventory Management
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS inventory (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id TEXT NOT NULL,
+  item_id TEXT NOT NULL,
+  sku TEXT,
+  stock_quantity INTEGER NOT NULL DEFAULT 0,
+  reserved_quantity INTEGER NOT NULL DEFAULT 0,
+  low_stock_threshold INTEGER DEFAULT 5,
+  max_quantity_per_order INTEGER DEFAULT 100,
+  track_inventory BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(provider_id, item_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_inventory_provider ON inventory(provider_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_item ON inventory(item_id);
+CREATE INDEX IF NOT EXISTS idx_inventory_low_stock ON inventory(stock_quantity) WHERE stock_quantity <= 5;

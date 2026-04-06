@@ -9,14 +9,18 @@ import {
   nack,
   transactions,
   orders,
+  payments,
   createVerifyAuthMiddleware,
   createLogger,
+  createPaymentGateway,
   SettlementService,
   SettlementBasis,
   sanitizeCatalog,
   maskPiiInBody,
+  NotificationService,
+  NotificationEvent,
 } from "@ondc/shared";
-import type { BecknRequest } from "@ondc/shared";
+import type { BecknRequest, PaymentGateway } from "@ondc/shared";
 import { eq, and } from "drizzle-orm";
 import { notifyWebhook } from "../../services/webhook.js";
 
@@ -41,6 +45,13 @@ const BECKN_CALLBACKS = Object.values(BecknCallbackAction);
 export const registerCallbackRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance,
 ): Promise<void> => {
+  let paymentGateway: PaymentGateway | null = null;
+  try {
+    paymentGateway = createPaymentGateway();
+  } catch {
+    logger.warn("Payment gateway not configured, refund on cancel disabled");
+  }
+
   // Set up auth verification middleware for all callback routes
   const verifyAuth = createVerifyAuthMiddleware({
     registryUrl: fastify.config.registryUrl,
@@ -271,6 +282,152 @@ export const registerCallbackRoutes: FastifyPluginAsync = async (
                 "BAP settlement tracking failed",
               );
             }
+          }
+
+          // Refund payment on cancellation (on_cancel callback)
+          if (callbackAction === "on_cancel" && paymentGateway) {
+            try {
+              const orderData = (body.message as any)?.order;
+              const orderId = orderData?.id ?? context.transaction_id;
+              const cancellationReason = orderData?.cancellation?.reason?.id ?? "Order cancelled";
+
+              // Look up payment for this order
+              const paymentRecords = await fastify.db
+                .select()
+                .from(payments)
+                .where(eq(payments.order_id, orderId))
+                .limit(1);
+
+              if (paymentRecords.length > 0) {
+                const paymentRecord = paymentRecords[0];
+
+                // Only refund if payment was captured
+                if (paymentRecord.status === "CAPTURED" && paymentRecord.gateway_payment_id) {
+                  const refundResult = await paymentGateway.refund({
+                    gatewayPaymentId: paymentRecord.gateway_payment_id,
+                    amount: paymentRecord.amount,
+                    reason: `Order cancelled: ${cancellationReason}`,
+                  });
+
+                  await fastify.db
+                    .update(payments)
+                    .set({
+                      refund_id: refundResult.refundId,
+                      refund_amount: paymentRecord.amount,
+                      refund_status: refundResult.status,
+                      status: "REFUNDED",
+                      updated_at: new Date(),
+                    } as any)
+                    .where(eq(payments.id, paymentRecord.id));
+
+                  logger.info(
+                    { orderId, refundId: refundResult.refundId, amount: paymentRecord.amount },
+                    "Refund initiated for cancelled order",
+                  );
+                }
+              }
+            } catch (refundErr) {
+              logger.error(
+                { err: refundErr, callbackAction, transactionId: context.transaction_id },
+                "Refund on cancellation failed",
+              );
+            }
+          }
+
+          // --- Buyer/Seller notifications ---
+          try {
+            const orderData = (body.message as any)?.order;
+            const orderId = orderData?.id ?? context.transaction_id;
+            const buyerPhone = orderData?.billing?.phone ?? orderData?.fulfillments?.[0]?.end?.contact?.phone;
+            const buyerEmail = orderData?.billing?.email ?? orderData?.fulfillments?.[0]?.end?.contact?.email;
+            const sellerWebhookUrl = orderData?.provider?.["@ondc/org/webhook_url"];
+            const itemSummary = orderData?.items
+              ?.map((i: any) => i.descriptor?.name ?? i.id)
+              ?.slice(0, 3)
+              ?.join(", ");
+            const amount = orderData?.quote?.price?.value
+              ? parseFloat(orderData.quote.price.value) * 100
+              : undefined;
+
+            if (callbackAction === "on_confirm") {
+              // Buyer: order confirmed
+              fastify.notifications
+                .send(
+                  NotificationService.buildOrderNotification(
+                    NotificationEvent.ORDER_CONFIRMED,
+                    { orderId, buyerPhone, buyerEmail, itemSummary, amount },
+                  ),
+                )
+                .catch((err: unknown) => logger.error({ err, orderId }, "ORDER_CONFIRMED notification failed"));
+
+              // Seller: new order webhook
+              if (sellerWebhookUrl) {
+                fastify.notifications
+                  .send(
+                    NotificationService.buildOrderNotification(
+                      NotificationEvent.NEW_ORDER,
+                      { orderId, sellerWebhookUrl, itemSummary, amount },
+                    ),
+                  )
+                  .catch((err: unknown) => logger.error({ err, orderId }, "NEW_ORDER notification failed"));
+              }
+            }
+
+            if (callbackAction === "on_cancel") {
+              fastify.notifications
+                .send(
+                  NotificationService.buildOrderNotification(
+                    NotificationEvent.ORDER_CANCELLED,
+                    { orderId, buyerPhone, buyerEmail, amount },
+                  ),
+                )
+                .catch((err: unknown) => logger.error({ err, orderId }, "ORDER_CANCELLED notification failed"));
+
+              fastify.notifications
+                .send(
+                  NotificationService.buildOrderNotification(
+                    NotificationEvent.REFUND_INITIATED,
+                    { orderId, buyerPhone, buyerEmail, amount },
+                  ),
+                )
+                .catch((err: unknown) => logger.error({ err, orderId }, "REFUND_INITIATED notification failed"));
+            }
+
+            if (callbackAction === "on_status" && orderData) {
+              const fulfillments = orderData.fulfillments as Array<Record<string, any>> | undefined;
+              const activeFulfillment = fulfillments?.find((f: any) => f.state?.descriptor?.code) ?? fulfillments?.[0];
+              const fulfillmentState = activeFulfillment?.state?.descriptor?.code;
+              const trackingUrl = activeFulfillment?.tracking ?? activeFulfillment?.["@ondc/org/tracking_url"];
+
+              if (fulfillmentState === "Order-delivered") {
+                fastify.notifications
+                  .send(
+                    NotificationService.buildOrderNotification(
+                      NotificationEvent.ORDER_DELIVERED,
+                      { orderId, buyerPhone, buyerEmail },
+                    ),
+                  )
+                  .catch((err: unknown) => logger.error({ err, orderId }, "ORDER_DELIVERED notification failed"));
+              } else if (fulfillmentState === "Order-picked-up" || fulfillmentState === "Out-for-delivery") {
+                const event =
+                  fulfillmentState === "Order-picked-up"
+                    ? NotificationEvent.ORDER_SHIPPED
+                    : NotificationEvent.FULFILLMENT_UPDATE;
+                fastify.notifications
+                  .send(
+                    NotificationService.buildOrderNotification(event, {
+                      orderId,
+                      buyerPhone,
+                      buyerEmail,
+                      trackingUrl,
+                      itemSummary: fulfillmentState === "Out-for-delivery" ? "Out for delivery" : undefined,
+                    }),
+                  )
+                  .catch((err: unknown) => logger.error({ err, orderId }, "Fulfillment notification failed"));
+              }
+            }
+          } catch (notifErr) {
+            logger.error({ err: notifErr, callbackAction }, "Notification dispatch failed");
           }
 
           // Sanitize catalog data in on_search responses before forwarding

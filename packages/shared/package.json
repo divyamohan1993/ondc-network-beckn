@@ -36,8 +36,12 @@
     "undici": "^7.22.0",
     "uuid": "^11.1.0"
   },
+  "optionalDependencies": {
+    "nodemailer": "^6.9.0"
+  },
   "devDependencies": {
     "@types/node": "^22.15.0",
+    "@types/nodemailer": "^6.4.23",
     "@types/pg": "^8.16.0",
     "drizzle-kit": "^0.31.9",
     "typescript": "^5.9.3"

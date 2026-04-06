@@ -938,3 +938,79 @@ export const dataPrincipalRequests = pgTable(
 );
 
 export type DataPrincipalRequest = InferSelectModel<typeof dataPrincipalRequests>;
+
+// ---------------------------------------------------------------------------
+// Payments Table (Payment Gateway Integration)
+// ---------------------------------------------------------------------------
+
+export const paymentStatusEnum = pgEnum("payment_status", [
+  "CREATED",
+  "AUTHORIZED",
+  "CAPTURED",
+  "FAILED",
+  "REFUNDED",
+  "PARTIALLY_REFUNDED",
+]);
+
+export const payments = pgTable(
+  "payments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    order_id: text("order_id").notNull(),
+    gateway_order_id: text("gateway_order_id"),
+    gateway_payment_id: text("gateway_payment_id"),
+    amount: integer("amount").notNull(), // in paise (INR * 100)
+    currency: text("currency").default("INR"),
+    status: paymentStatusEnum("status").default("CREATED"),
+    method: text("method"),
+    customer_name: text("customer_name"),
+    customer_email: text("customer_email"),
+    customer_phone: text("customer_phone"),
+    payment_url: text("payment_url"),
+    gateway_signature: text("gateway_signature"),
+    refund_id: text("refund_id"),
+    refund_amount: integer("refund_amount").default(0),
+    refund_status: text("refund_status"),
+    error_code: text("error_code"),
+    error_description: text("error_description"),
+    metadata: jsonb("metadata"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_payments_order_id").on(table.order_id),
+    index("idx_payments_gateway_order").on(table.gateway_order_id),
+    index("idx_payments_status").on(table.status),
+  ],
+);
+
+export type PaymentRecord = InferSelectModel<typeof payments>;
+
+// ---------------------------------------------------------------------------
+// Inventory Management
+// ---------------------------------------------------------------------------
+
+export const inventory = pgTable(
+  "inventory",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    provider_id: text("provider_id").notNull(),
+    item_id: text("item_id").notNull(),
+    sku: text("sku"),
+    stock_quantity: integer("stock_quantity").notNull().default(0),
+    reserved_quantity: integer("reserved_quantity").notNull().default(0),
+    low_stock_threshold: integer("low_stock_threshold").default(5),
+    max_quantity_per_order: integer("max_quantity_per_order").default(100),
+    track_inventory: boolean("track_inventory").default(true),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_inventory_provider").on(table.provider_id),
+    index("idx_inventory_item").on(table.item_id),
+    index("idx_inventory_low_stock").on(table.stock_quantity),
+    unique("inventory_provider_item").on(table.provider_id, table.item_id),
+  ],
+);
+
+export type InventoryRecord = InferSelectModel<typeof inventory>;

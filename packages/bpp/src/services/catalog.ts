@@ -1,6 +1,7 @@
 import type { Redis } from "ioredis";
-import { createLogger, validateCatalogItems, validateIndianLawCompliance, buildFeatureListTag, DEFAULT_BPP_FEATURES, sanitizeCatalog } from "@ondc/shared";
-import type { Catalog, Provider, Item, SearchIntent } from "@ondc/shared";
+import { createLogger, validateCatalogItems, validateIndianLawCompliance, buildFeatureListTag, DEFAULT_BPP_FEATURES, sanitizeCatalog, inventory } from "@ondc/shared";
+import type { Catalog, Provider, Item, SearchIntent, Database } from "@ondc/shared";
+import { eq } from "drizzle-orm";
 
 const logger = createLogger("bpp-catalog");
 
@@ -167,6 +168,7 @@ export async function buildOnSearchResponse(
   searchIntent: SearchIntent | undefined,
   redis: Redis,
   domain?: string,
+  db?: Database,
 ): Promise<Catalog | null> {
   const storedCatalog = await getCatalog(subscriberId, redis);
   if (!storedCatalog) {
@@ -308,6 +310,49 @@ export async function buildOnSearchResponse(
           "Invalid catalog_inc timestamp filter, ignoring",
         );
       }
+    }
+  }
+
+  // Enrich items with inventory stock data and filter out zero-stock items
+  if (db) {
+    try {
+      const stockRecords = await db
+        .select()
+        .from(inventory)
+        .where(eq(inventory.provider_id, storedCatalog.provider.id ?? subscriberId));
+
+      if (stockRecords.length > 0) {
+        const stockMap = new Map(
+          stockRecords.map((r) => [r.item_id, r]),
+        );
+
+        filteredItems = filteredItems
+          .map((item) => {
+            const stock = stockMap.get(item.id ?? "");
+            if (!stock || !stock.track_inventory) return item;
+            const availableQty = stock.stock_quantity - stock.reserved_quantity;
+            return {
+              ...item,
+              quantity: {
+                ...item.quantity,
+                available: {
+                  count: Math.max(0, availableQty),
+                },
+                maximum: {
+                  count: stock.max_quantity_per_order ?? 100,
+                },
+              },
+            };
+          })
+          .filter((item) => {
+            const stock = stockMap.get(item.id ?? "");
+            if (!stock || !stock.track_inventory) return true;
+            const availableQty = stock.stock_quantity - stock.reserved_quantity;
+            return availableQty > 0;
+          });
+      }
+    } catch (err) {
+      logger.error({ err, subscriberId }, "Failed to enrich catalog with inventory data");
     }
   }
 

@@ -5,12 +5,17 @@ import {
   ack,
   nack,
   transactions,
+  payments,
   createLogger,
+  createPaymentGateway,
   isNetworkCancellation,
   maskPiiInBody,
+  buildAuthHeader,
+  PaymentMethod,
 } from "@ondc/shared";
-import type { BecknRequest } from "@ondc/shared";
+import type { BecknRequest, PaymentGateway } from "@ondc/shared";
 import { BecknClient } from "../../services/beckn-client.js";
+import type { ActionQueueService } from "../../services/action-queue.js";
 
 const logger = createLogger("bap-actions");
 
@@ -37,6 +42,13 @@ export const registerActionRoutes: FastifyPluginAsync = async (
   fastify: FastifyInstance,
 ): Promise<void> => {
   const becknClient = new BecknClient();
+
+  let paymentGateway: PaymentGateway | null = null;
+  try {
+    paymentGateway = createPaymentGateway();
+  } catch (err) {
+    logger.warn({ err }, "Payment gateway not configured, payment collection disabled");
+  }
 
   for (const action of BECKN_ACTIONS) {
     fastify.post<{ Body: BecknRequest }>(
@@ -76,6 +88,83 @@ export const registerActionRoutes: FastifyPluginAsync = async (
             status: "SENT",
           });
 
+          // Payment collection for confirm action (non-COD orders)
+          if (action === BecknAction.confirm && paymentGateway) {
+            try {
+              const orderData = (body.message as any)?.order;
+              const paymentData = orderData?.payment;
+              const paymentType = paymentData?.type ?? paymentData?.["@ondc/org/payment_type"];
+
+              // Only collect payment for prepaid orders (ON-ORDER), skip COD (ON-FULFILLMENT)
+              if (paymentType !== "ON-FULFILLMENT") {
+                const quotePrice = orderData?.quote?.price;
+                const amount = quotePrice
+                  ? Math.round(parseFloat(quotePrice.value) * 100) // Convert INR to paise
+                  : 0;
+
+                if (amount > 0) {
+                  const billing = orderData?.billing ?? {};
+                  const orderId = orderData?.id ?? context.transaction_id;
+                  const callbackUrl = `${fastify.config.bapUri}/payment/verify`;
+
+                  const paymentResult = await paymentGateway.createPayment({
+                    orderId,
+                    amount,
+                    currency: quotePrice?.currency ?? "INR",
+                    description: `ONDC Order ${orderId}`,
+                    customerName: billing.name ?? "",
+                    customerEmail: billing.email ?? "",
+                    customerPhone: billing.phone ?? "",
+                    callbackUrl,
+                    metadata: {
+                      transaction_id: context.transaction_id,
+                      bpp_id: context.bpp_id ?? "",
+                      domain: context.domain,
+                    },
+                  });
+
+                  // Persist payment record
+                  await fastify.db.insert(payments).values({
+                    order_id: orderId,
+                    gateway_order_id: paymentResult.gatewayOrderId,
+                    gateway_payment_id: paymentResult.gatewayPaymentId || null,
+                    amount,
+                    currency: quotePrice?.currency ?? "INR",
+                    status: "CREATED",
+                    customer_name: billing.name ?? null,
+                    customer_email: billing.email ?? null,
+                    customer_phone: billing.phone ?? null,
+                    payment_url: paymentResult.paymentUrl ?? null,
+                    metadata: {
+                      transaction_id: context.transaction_id,
+                      bpp_id: context.bpp_id,
+                    },
+                  });
+
+                  logger.info(
+                    { orderId, gatewayOrderId: paymentResult.gatewayOrderId, amount, paymentUrl: paymentResult.paymentUrl },
+                    "Payment created for confirm action",
+                  );
+
+                  // Return ACK with payment URL so buyer app can redirect
+                  return reply.code(200).send({
+                    ...ack(),
+                    payment: {
+                      uri: paymentResult.paymentUrl,
+                      gateway_order_id: paymentResult.gatewayOrderId,
+                      status: paymentResult.status,
+                    },
+                  });
+                }
+              }
+            } catch (paymentErr) {
+              logger.error({ err: paymentErr, transactionId: context.transaction_id }, "Payment creation failed");
+              return reply.code(500).send(
+                nack("DOMAIN-ERROR", "23001", "Payment gateway error. Please retry."),
+              );
+            }
+          }
+
           // Log force cancellation requests for audit trail
           if (action === BecknAction.cancel) {
             const cancelCode = (body.message as any)?.order?.cancellation?.reason?.id;
@@ -106,7 +195,7 @@ export const registerActionRoutes: FastifyPluginAsync = async (
                 );
               });
           } else {
-            // All other actions go directly to BPP
+            // All other actions go directly to BPP via action queue for reliable delivery
             const bppUri = context.bpp_uri;
             if (!bppUri) {
               logger.warn(
@@ -122,21 +211,74 @@ export const registerActionRoutes: FastifyPluginAsync = async (
               );
             }
 
-            becknClient
-              .sendToBPP(
-                bppUri,
-                action,
-                body,
-                fastify.config.privateKey,
-                fastify.config.bapId,
-                fastify.config.uniqueKeyId,
-              )
-              .catch((err) => {
-                logger.error(
-                  { err, action, transactionId: context.transaction_id },
-                  "Async BPP send failed",
-                );
-              });
+            // Build auth header for BPP delivery
+            const authHeader = buildAuthHeader({
+              subscriberId: fastify.config.bapId,
+              uniqueKeyId: fastify.config.uniqueKeyId,
+              privateKey: fastify.config.privateKey,
+              body,
+            });
+
+            // Extract trace headers for propagation
+            const traceHeaders: Record<string, string> = {};
+            const traceId = request.headers["x-trace-id"];
+            if (typeof traceId === "string") traceHeaders["x-trace-id"] = traceId;
+            const spanId = request.headers["x-span-id"];
+            if (typeof spanId === "string") traceHeaders["x-span-id"] = spanId;
+
+            const actionQueue = (fastify as any).actionQueue as ActionQueueService | undefined;
+            if (actionQueue) {
+              // Enqueue for reliable delivery with retry
+              actionQueue
+                .enqueue({
+                  action,
+                  bppUri: bppUri.replace(/\/+$/, ""),
+                  body,
+                  authHeader,
+                  traceHeaders,
+                  attempt: 0,
+                  createdAt: new Date().toISOString(),
+                })
+                .catch((err) => {
+                  logger.error(
+                    { err, action, transactionId: context.transaction_id },
+                    "Failed to enqueue action, falling back to direct send",
+                  );
+                  // Fallback: direct HTTP if queue fails
+                  becknClient
+                    .sendToBPP(
+                      bppUri,
+                      action,
+                      body,
+                      fastify.config.privateKey,
+                      fastify.config.bapId,
+                      fastify.config.uniqueKeyId,
+                    )
+                    .catch((fallbackErr) => {
+                      logger.error(
+                        { err: fallbackErr, action, transactionId: context.transaction_id },
+                        "Fallback direct BPP send also failed",
+                      );
+                    });
+                });
+            } else {
+              // No queue available, send directly (backward compatible)
+              becknClient
+                .sendToBPP(
+                  bppUri,
+                  action,
+                  body,
+                  fastify.config.privateKey,
+                  fastify.config.bapId,
+                  fastify.config.uniqueKeyId,
+                )
+                .catch((err) => {
+                  logger.error(
+                    { err, action, transactionId: context.transaction_id },
+                    "Async BPP send failed",
+                  );
+                });
+            }
           }
 
           logger.info(

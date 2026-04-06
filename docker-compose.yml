@@ -198,6 +198,7 @@ services:
       BAP_PORT: ${BAP_PORT:-3004}
       DATABASE_URL: postgresql://${POSTGRES_USER:-ondc_admin}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ondc}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ondc}:${RABBITMQ_PASSWORD}@rabbitmq:5672
       REGISTRY_URL: http://registry:3001
       GATEWAY_URL: http://gateway:3002
       ONDC_REGISTRY_URL: ${ONDC_REGISTRY_URL:-}
@@ -214,6 +215,23 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-}
       NODE_ENV: ${NODE_ENV:-development}
       ONDC_METRICS_URL: ${ONDC_METRICS_URL:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      PAYMENT_GATEWAY: ${PAYMENT_GATEWAY:-mock}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-noreply@ondc.example.com}
+      SMS_PROVIDER: ${SMS_PROVIDER:-mock}
+      SMS_API_KEY: ${SMS_API_KEY:-}
+      SMS_SENDER_ID: ${SMS_SENDER_ID:-ONDCSM}
+      SMS_TEMPLATE_ID: ${SMS_TEMPLATE_ID:-}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_FROM_NUMBER: ${TWILIO_FROM_NUMBER:-}
     ports:
       - "${BAP_PORT:-3004}:3004"
     healthcheck:
@@ -226,6 +244,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
       registry:
         condition: service_healthy

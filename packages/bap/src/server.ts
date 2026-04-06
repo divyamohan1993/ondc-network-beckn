@@ -14,6 +14,7 @@ import {
   globalMetrics,
   OndcMetricsReporter,
   derivePiiKey,
+  NotificationService,
 } from "@ondc/shared";
 import type { Database } from "@ondc/shared";
 import { healthRoute } from "./routes/health.js";
@@ -22,6 +23,8 @@ import { registerCallbackRoutes } from "./routes/callbacks/index.js";
 import { registerClientApi } from "./api/client-api.js";
 import { registerIgmRoutes } from "./routes/igm/index.js";
 import { registerRspRoutes } from "./routes/rsp/index.js";
+import { registerPaymentRoutes } from "./routes/payment.js";
+import { ActionQueueService } from "./services/action-queue.js";
 
 const logger = createLogger("bap");
 
@@ -32,6 +35,7 @@ const logger = createLogger("bap");
 const BAP_PORT = parseInt(process.env["BAP_PORT"] ?? "3004", 10);
 const DATABASE_URL = process.env["DATABASE_URL"];
 const REDIS_URL = process.env["REDIS_URL"];
+const RABBITMQ_URL = process.env["RABBITMQ_URL"];
 
 if (!DATABASE_URL || !REDIS_URL) {
   logger.error("Missing required environment variables: DATABASE_URL, REDIS_URL");
@@ -63,6 +67,7 @@ declare module "fastify" {
     db: Database;
     redis: Redis;
     piiKey: Buffer;
+    notifications: NotificationService;
     config: {
       bapId: string;
       bapUri: string;
@@ -151,6 +156,62 @@ async function main(): Promise<void> {
   );
   fastify.decorate("piiKey", piiKey);
 
+  // --- Notification Service ---
+  const smtpHost = process.env["SMTP_HOST"];
+  const smsProvider = process.env["SMS_PROVIDER"] as "msg91" | "twilio" | "mock" | undefined;
+  const notificationService = new NotificationService({
+    email: smtpHost
+      ? {
+          host: smtpHost,
+          port: parseInt(process.env["SMTP_PORT"] ?? "587", 10),
+          secure: process.env["SMTP_SECURE"] === "true",
+          user: process.env["SMTP_USER"] ?? "",
+          pass: process.env["SMTP_PASS"] ?? "",
+          from: process.env["SMTP_FROM"] ?? "noreply@ondc.example.com",
+        }
+      : undefined,
+    sms: smsProvider
+      ? {
+          provider: smsProvider,
+          apiKey: process.env["SMS_API_KEY"] ?? "",
+          senderId: process.env["SMS_SENDER_ID"] ?? "ONDCSM",
+          templateId: process.env["SMS_TEMPLATE_ID"],
+          accountSid: process.env["TWILIO_ACCOUNT_SID"],
+          authToken: process.env["TWILIO_AUTH_TOKEN"],
+          fromNumber: process.env["TWILIO_FROM_NUMBER"],
+        }
+      : undefined,
+  });
+  notificationService.startRetryProcessor();
+  fastify.decorate("notifications", notificationService);
+
+  fastify.addHook("onClose", async () => {
+    notificationService.stopRetryProcessor();
+    logger.info("Notification retry processor stopped");
+  });
+
+  // --- Action Queue (RabbitMQ) ---
+  let actionQueue: ActionQueueService | undefined;
+  if (RABBITMQ_URL) {
+    try {
+      actionQueue = new ActionQueueService(RABBITMQ_URL);
+      await actionQueue.init();
+      await actionQueue.startConsumer();
+      (fastify as any).actionQueue = actionQueue;
+
+      fastify.addHook("onClose", async () => {
+        await actionQueue!.close();
+        logger.info("Action queue closed");
+      });
+
+      logger.info("Action queue initialized with RabbitMQ");
+    } catch (err) {
+      logger.warn({ err }, "RabbitMQ not available, actions will be sent directly to BPPs");
+    }
+  } else {
+    logger.info("RABBITMQ_URL not set, actions will be sent directly to BPPs");
+  }
+
   // --- Config ---
   fastify.decorate("config", {
     bapId: BAP_ID,
@@ -199,6 +260,7 @@ async function main(): Promise<void> {
   await fastify.register(registerClientApi, { prefix: "/api" });
   await fastify.register(registerIgmRoutes, { prefix: "/" });
   await fastify.register(registerRspRoutes, { prefix: "/" });
+  await fastify.register(registerPaymentRoutes, { prefix: "/" });
 
   // --- Observability endpoints ---
   fastify.get("/metrics", async (_request, reply) => {
