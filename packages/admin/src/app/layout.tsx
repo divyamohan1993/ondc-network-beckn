@@ -23,7 +23,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="noise">
+      <body suppressHydrationWarning className="noise">
         <SessionProvider>
           <div className="flex h-screen overflow-hidden">
             <Sidebar />

@@ -38,7 +38,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="pb-16 sm:pb-0">{children}</body>
+      <body suppressHydrationWarning className="pb-16 sm:pb-0">{children}</body>
     </html>
   );
 }
