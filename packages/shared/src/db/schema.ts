@@ -1014,3 +1014,30 @@ export const inventory = pgTable(
 );
 
 export type InventoryRecord = InferSelectModel<typeof inventory>;
+
+// ---------------------------------------------------------------------------
+// Device Tokens (Push Notifications / FCM)
+// ---------------------------------------------------------------------------
+
+export const deviceTokenPlatformEnum = pgEnum("device_token_platform", [
+  "web",
+  "android",
+  "ios",
+]);
+
+export const deviceTokens = pgTable(
+  "device_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: text("user_id").notNull(),
+    device_token: text("device_token").unique().notNull(),
+    platform: deviceTokenPlatformEnum("platform").default("web"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_device_tokens_user").on(table.user_id),
+  ],
+);
+
+export type DeviceToken = InferSelectModel<typeof deviceTokens>;

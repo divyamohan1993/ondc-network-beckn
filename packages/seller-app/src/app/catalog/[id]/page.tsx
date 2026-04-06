@@ -1,0 +1,109 @@
+'use client';
+
+import { useRouter, useParams } from 'next/navigation';
+import ProductForm from '@/components/ProductForm';
+import en from '@/i18n/en.json';
+import hi from '@/i18n/hi.json';
+import { useEffect, useState } from 'react';
+
+function getLocale(): string {
+  if (typeof document === 'undefined') return 'en';
+  const match = document.cookie.match(/(?:^|; )locale=([^;]*)/);
+  return match?.[1] || 'en';
+}
+
+export default function EditProductPage() {
+  const router = useRouter();
+  const params = useParams();
+  const id = params.id as string;
+  const [locale, setLocale] = useState('en');
+
+  useEffect(() => {
+    setLocale(getLocale());
+  }, []);
+
+  const t = locale === 'hi' ? hi : en;
+
+  async function handleImageUpload(files: File[]): Promise<string[]> {
+    const urls: string[] = [];
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        urls.push(data.url);
+      }
+    }
+    return urls;
+  }
+
+  async function handleSubmit(data: {
+    name: string;
+    description: string;
+    price: string;
+    mrp: string;
+    category: string;
+    gstRate: string;
+    hsnCode: string;
+    countryOfOrigin: string;
+    weight: string;
+    length: string;
+    width: string;
+    height: string;
+    images: string[];
+    variants: Array<{ id: string; type: string; value: string; price: string; stock: number }>;
+  }) {
+    const updates = {
+      descriptor: {
+        name: data.name,
+        short_desc: data.description,
+        images: data.images.map((url) => ({ url })),
+      },
+      price: { value: data.price, currency: 'INR', maximum_value: data.mrp },
+      tags: [
+        { code: 'origin', list: [{ code: 'country', value: data.countryOfOrigin }] },
+        { code: 'tax', list: [{ code: 'gst_rate', value: data.gstRate }, { code: 'hsn_code', value: data.hsnCode }] },
+      ],
+    };
+
+    const res = await fetch(`/api/catalog?itemId=${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+
+    if (res.ok) {
+      router.push('/catalog');
+    }
+  }
+
+  return (
+    <div className="space-y-6 max-w-3xl">
+      <div>
+        <h1 className="page-title">{t.catalog.edit}</h1>
+        <p className="page-subtitle">{locale === 'hi' ? `उत्पाद ${id} संपादित करें` : `Editing product ${id}`}</p>
+      </div>
+
+      <ProductForm
+        onSubmit={handleSubmit}
+        onImageUpload={handleImageUpload}
+        locale={locale}
+        translations={{
+          ...t.catalog,
+          save: t.app.save,
+          cancel: t.app.cancel,
+          drag_drop: t.upload.drag_drop,
+          or_browse: t.upload.or_browse,
+          max_size: t.upload.max_size,
+          uploading: t.upload.uploading,
+          upload_failed: t.upload.upload_failed,
+          remove: t.upload.remove,
+        }}
+      />
+    </div>
+  );
+}

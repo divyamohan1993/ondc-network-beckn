@@ -1,5 +1,7 @@
 import { request } from "undici";
 import { createLogger } from "../utils/logger.js";
+import { PushNotificationService } from "./push-notification-service.js";
+import type { PushNotification } from "./push-notification-service.js";
 
 const logger = createLogger("notifications");
 
@@ -32,11 +34,13 @@ export interface NotificationPayload {
   recipientPhone?: string;
   recipientEmail?: string;
   webhookUrl?: string;
+  deviceTokens?: string[];
   subject?: string;
   body: string;
   data?: Record<string, unknown>;
   orderId?: string;
   transactionId?: string;
+  imageUrl?: string;
 }
 
 interface EmailConfig {
@@ -61,15 +65,23 @@ interface SmsConfig {
 export class NotificationService {
   private emailConfig?: EmailConfig;
   private smsConfig?: SmsConfig;
+  private pushService?: PushNotificationService;
   private webhookRetryQueue: Map<
     string,
     { payload: NotificationPayload; attempts: number; nextRetry: number }
   > = new Map();
   private retryInterval?: ReturnType<typeof setInterval>;
 
-  constructor(config?: { email?: EmailConfig; sms?: SmsConfig }) {
+  constructor(config?: {
+    email?: EmailConfig;
+    sms?: SmsConfig;
+    push?: { projectId: string; serviceAccountKeyJson: string };
+  }) {
     this.emailConfig = config?.email;
     this.smsConfig = config?.sms;
+    if (config?.push?.projectId && config?.push?.serviceAccountKeyJson) {
+      this.pushService = new PushNotificationService(config.push);
+    }
   }
 
   /**
@@ -126,6 +138,19 @@ export class NotificationService {
               nextRetry: Date.now() + 5000,
             });
             failed.push("webhook");
+          }),
+      );
+    }
+
+    if (payload.deviceTokens && payload.deviceTokens.length > 0 && this.pushService) {
+      tasks.push(
+        this.sendPush(payload)
+          .then(() => {
+            sent.push("push");
+          })
+          .catch((err) => {
+            logger.error({ err }, "Push notification send failed");
+            failed.push("push");
           }),
       );
     }
@@ -299,6 +324,36 @@ export class NotificationService {
   }
 
   /**
+   * Send push notification via FCM to all device tokens.
+   */
+  private async sendPush(payload: NotificationPayload): Promise<void> {
+    if (!this.pushService || !payload.deviceTokens || payload.deviceTokens.length === 0) {
+      throw new Error("Push not configured or no device tokens");
+    }
+
+    const pushPayload: PushNotification = {
+      title: payload.subject || payload.event.replace(/_/g, " "),
+      body: payload.body,
+      imageUrl: payload.imageUrl,
+      data: {
+        event: payload.event,
+        ...(payload.orderId ? { orderId: payload.orderId } : {}),
+        ...(payload.transactionId ? { transactionId: payload.transactionId } : {}),
+      },
+    };
+
+    const result = await this.pushService.sendToDevices(payload.deviceTokens, pushPayload);
+    logger.info(
+      { event: payload.event, success: result.success, failure: result.failure },
+      "Push notifications dispatched",
+    );
+
+    if (result.success === 0 && result.failure > 0) {
+      throw new Error(`All ${result.failure} push notifications failed`);
+    }
+  }
+
+  /**
    * Start the webhook retry processor.
    * Retries failed webhooks with exponential backoff (5s, 30s, 5m, 30m, 2h).
    */
@@ -361,6 +416,7 @@ export class NotificationService {
       buyerPhone?: string;
       buyerEmail?: string;
       sellerWebhookUrl?: string;
+      deviceTokens?: string[];
       itemSummary?: string;
       amount?: number;
       trackingUrl?: string;
@@ -388,6 +444,7 @@ export class NotificationService {
       recipientPhone: orderData.buyerPhone,
       recipientEmail: orderData.buyerEmail,
       webhookUrl: orderData.sellerWebhookUrl,
+      deviceTokens: orderData.deviceTokens,
       subject: `Order ${orderData.orderId}: ${event.replace(/_/g, " ").toLowerCase()}`,
       body:
         messages[event] || `Order ${orderData.orderId} status update.`,

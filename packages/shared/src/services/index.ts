@@ -23,3 +23,5 @@ export {
   NotificationChannel,
 } from "./notification-service.js";
 export type { NotificationPayload } from "./notification-service.js";
+export { PushNotificationService } from "./push-notification-service.js";
+export type { PushNotification } from "./push-notification-service.js";

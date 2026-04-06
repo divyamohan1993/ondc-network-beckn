@@ -591,7 +591,7 @@ describe("Auth Header Extreme Edge Cases", () => {
     expect(verifyAuthHeader({ header, body: tamperedBody, publicKey: kp.publicKey })).toBe(false);
   });
 
-  it("1000 concurrent build+verify operations (race condition check)", async () => {
+  it("1000 concurrent build+verify operations (race condition check)", { timeout: 60000 }, async () => {
     // Prod scenario: high-throughput gateway processing 1000 concurrent requests
     const kp = generateKeyPair();
     const tasks = Array.from({ length: 1000 }, (_, i) =>

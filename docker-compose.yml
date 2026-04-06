@@ -550,6 +550,63 @@ services:
       ondc.service.name: mock-server
 
   # =========================================================================
+  # Buyer App
+  # =========================================================================
+
+  buyer-app:
+    build:
+      context: .
+      dockerfile: packages/buyer-app/Dockerfile
+    environment:
+      - NEXT_PUBLIC_BAP_URL=http://bap:3004
+      - BAP_URL=http://bap:3004
+      - NODE_ENV=${NODE_ENV:-development}
+    ports:
+      - "${BUYER_APP_PORT:-3012}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      bap:
+        condition: service_healthy
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: frontend
+      ondc.service.name: buyer-app
+
+  # =========================================================================
+  # Seller App
+  # =========================================================================
+
+  seller-app:
+    build:
+      context: .
+      dockerfile: packages/seller-app/Dockerfile
+    environment:
+      - NEXT_PUBLIC_BPP_URL=http://bpp:3005
+      - NODE_ENV=${NODE_ENV:-development}
+    ports:
+      - "${SELLER_APP_PORT:-3013}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      bpp:
+        condition: service_healthy
+    networks:
+      - ondc-network
+    labels:
+      ondc.service.type: frontend
+      ondc.service.name: seller-app
+
+  # =========================================================================
   # Reverse Proxy
   # =========================================================================
 
@@ -582,6 +639,8 @@ services:
       admin:
         condition: service_healthy
       docs:
+        condition: service_healthy
+      buyer-app:
         condition: service_healthy
     networks:
       - ondc-network

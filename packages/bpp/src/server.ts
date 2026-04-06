@@ -1,7 +1,11 @@
 import "dotenv/config";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
+import staticPlugin from "@fastify/static";
+import { join } from "node:path";
 import { Redis } from "ioredis";
+import { ImageService } from "./services/image-service.js";
 import {
   createDb,
   createLogger,
@@ -61,6 +65,7 @@ declare module "fastify" {
     db: Database;
     redis: Redis;
     piiKey: Buffer;
+    imageService: ImageService;
     config: {
       bppId: string;
       bppUri: string;
@@ -96,6 +101,26 @@ async function main(): Promise<void> {
 
   // --- CORS ---
   await fastify.register(cors, { origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || [process.env.DOMAIN ? `https://${process.env.DOMAIN}` : 'http://localhost:3000'] });
+
+  // --- Multipart file upload ---
+  await fastify.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB
+    },
+  });
+
+  // --- Serve uploaded images ---
+  const uploadDir = process.env.UPLOAD_DIR || "./uploads";
+  await fastify.register(staticPlugin, {
+    root: join(process.cwd(), uploadDir),
+    prefix: "/uploads/",
+    decorateReply: false,
+  });
+
+  // --- Image service ---
+  const imageService = new ImageService(join(process.cwd(), uploadDir));
+  await imageService.init();
+  fastify.decorate("imageService", imageService);
 
   // --- PostgreSQL ---
   const { db, pool } = createDb(DATABASE_URL!);

@@ -25,6 +25,7 @@ import {
 } from "../services/logistics-client.js";
 import type { LogisticsConfig } from "../services/logistics-client.js";
 import { InventoryService } from "../services/inventory-service.js";
+import type { ImageService } from "../services/image-service.js";
 
 const logger = createLogger("bpp-provider-api");
 
@@ -802,6 +803,62 @@ export const registerProviderApi: FastifyPluginAsync = async (
         logger.error({ err, itemId }, "Error updating inventory item");
         return reply.code(500).send({
           error: { code: "INTERNAL_ERROR", message: "Internal error updating inventory.", details: [] },
+        });
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /api/upload -- multipart image upload
+  // -------------------------------------------------------------------------
+  fastify.post("/upload", async (request, reply) => {
+    const data = await request.file();
+    if (!data) {
+      return reply.code(400).send({
+        error: { code: "BAD_REQUEST", message: "No file uploaded.", details: [] },
+      });
+    }
+
+    try {
+      const imageService = (fastify as any).imageService as ImageService;
+      const buffer = await data.toBuffer();
+      const result = await imageService.processUpload(buffer, data.mimetype, data.filename);
+
+      return reply.send({
+        success: true,
+        image: result,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Image processing failed";
+      logger.error({ err }, "Image upload failed");
+      return reply.code(400).send({
+        error: { code: "UPLOAD_FAILED", message, details: [] },
+      });
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // DELETE /api/upload/:filename -- delete an uploaded image
+  // -------------------------------------------------------------------------
+  fastify.delete<{ Params: { filename: string } }>(
+    "/upload/:filename",
+    async (request, reply) => {
+      const { filename } = request.params;
+      // Validate filename to prevent path traversal
+      if (filename.includes("/") || filename.includes("..") || filename.includes("\\")) {
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: "Invalid filename.", details: [] },
+        });
+      }
+
+      try {
+        const imageService = (fastify as any).imageService as ImageService;
+        await imageService.deleteImage(filename);
+        return reply.send({ success: true });
+      } catch (err) {
+        logger.error({ err, filename }, "Image deletion failed");
+        return reply.code(500).send({
+          error: { code: "INTERNAL_ERROR", message: "Failed to delete image.", details: [] },
         });
       }
     },

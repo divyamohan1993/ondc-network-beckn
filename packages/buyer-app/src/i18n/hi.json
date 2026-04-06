@@ -1,0 +1,155 @@
+{
+  "app": {
+    "name": "ONDC बाज़ार",
+    "tagline": "भारत का खुला डिजिटल बाज़ार"
+  },
+  "nav": {
+    "home": "होम",
+    "orders": "मेरे ऑर्डर",
+    "cart": "टोकरी",
+    "support": "मदद",
+    "login": "लॉगिन",
+    "skip_to_content": "मुख्य सामग्री पर जाएं"
+  },
+  "search": {
+    "placeholder": "उत्पाद खोजें...",
+    "button": "खोजें",
+    "results_for": "\"{query}\" के लिए परिणाम",
+    "no_results": "\"{query}\" के लिए कोई उत्पाद नहीं मिला",
+    "try_different": "कोई अलग खोज शब्द आज़माएं या नीचे श्रेणियां देखें।",
+    "searching": "खोज रहे हैं..."
+  },
+  "categories": {
+    "title": "श्रेणी से खरीदें",
+    "grocery": "किराना",
+    "fashion": "फैशन",
+    "electronics": "इलेक्ट्रॉनिक्स",
+    "health": "स्वास्थ्य",
+    "home_kitchen": "घर और किचन",
+    "beauty": "सौंदर्य"
+  },
+  "product": {
+    "add_to_cart": "टोकरी में जोड़ें",
+    "buy_now": "अभी खरीदें",
+    "in_stock": "उपलब्ध",
+    "out_of_stock": "स्टॉक में नहीं",
+    "seller": "विक्रेता",
+    "delivery_info": "डिलीवरी जानकारी",
+    "description": "विवरण",
+    "quantity": "मात्रा",
+    "price": "कीमत",
+    "added_to_cart": "टोकरी में जोड़ा गया",
+    "select_quantity": "मात्रा चुनें"
+  },
+  "cart": {
+    "title": "आपकी टोकरी",
+    "empty": "आपकी टोकरी खाली है",
+    "empty_message": "खरीदारी शुरू करने के लिए उत्पाद जोड़ें।",
+    "start_shopping": "खरीदारी शुरू करें",
+    "checkout": "चेकआउट पर जाएं",
+    "remove": "हटाएं",
+    "subtotal": "उपयोग",
+    "delivery_fee": "डिलीवरी शुल्क",
+    "taxes": "टैक्स और शुल्क",
+    "total": "कुल",
+    "items_count": "{count, plural, =0 {कोई आइटम नहीं} =1 {1 आइटम} other {# आइटम}}",
+    "increase": "मात्रा बढ़ाएं",
+    "decrease": "मात्रा घटाएं"
+  },
+  "checkout": {
+    "title": "चेकआउट",
+    "address": "डिलीवरी पता",
+    "payment": "भुगतान का तरीका",
+    "place_order": "ऑर्डर दें",
+    "name": "पूरा नाम",
+    "phone": "फ़ोन नंबर",
+    "email": "ईमेल",
+    "door": "मकान/फ्लैट नंबर",
+    "street": "गली/सड़क",
+    "locality": "क्षेत्र/मोहल्ला",
+    "city": "शहर",
+    "state": "राज्य",
+    "pincode": "पिन कोड",
+    "name_required": "नाम आवश्यक है",
+    "phone_required": "फ़ोन नंबर आवश्यक है",
+    "pincode_required": "पिन कोड आवश्यक है",
+    "city_required": "शहर आवश्यक है",
+    "order_summary": "ऑर्डर सारांश"
+  },
+  "payment": {
+    "title": "भुगतान",
+    "upi": "UPI",
+    "card": "क्रेडिट/डेबिट कार्ड",
+    "cod": "कैश ऑन डिलीवरी",
+    "pay_now": "अभी भुगतान करें",
+    "timer_expires": "भुगतान {minutes}:{seconds} में समाप्त होगा",
+    "processing": "भुगतान प्रक्रिया में...",
+    "success": "भुगतान सफल!",
+    "failed": "भुगतान असफल। कृपया पुनः प्रयास करें।",
+    "upi_instruction": "भुगतान के लिए QR कोड स्कैन करें या UPI ID का उपयोग करें",
+    "cod_instruction": "ऑर्डर डिलीवर होने पर भुगतान करें"
+  },
+  "orders": {
+    "title": "मेरे ऑर्डर",
+    "track": "ऑर्डर ट्रैक करें",
+    "cancel": "ऑर्डर रद्द करें",
+    "empty": "अभी कोई ऑर्डर नहीं",
+    "empty_message": "आपके ऑर्डर यहां दिखाई देंगे।",
+    "order_id": "ऑर्डर ID",
+    "placed_on": "ऑर्डर किया",
+    "status": "स्थिति",
+    "details": "विवरण देखें",
+    "confirmed": "पुष्टि हो गई",
+    "packed": "पैक हो गया",
+    "shipped": "भेज दिया गया",
+    "out_for_delivery": "डिलीवरी के लिए निकला",
+    "delivered": "डिलीवर हो गया",
+    "cancelled": "रद्द हो गया",
+    "tracking_url": "शिपमेंट ट्रैक करें"
+  },
+  "support": {
+    "title": "मदद और सहायता",
+    "raise_issue": "शिकायत दर्ज करें",
+    "order_id_label": "ऑर्डर ID / ट्रांज़ैक्शन ID",
+    "issue_type": "समस्या का प्रकार",
+    "description": "अपनी समस्या बताएं",
+    "submit": "भेजें",
+    "phone": "आपका फ़ोन नंबर",
+    "email": "आपका ईमेल",
+    "submitted": "शिकायत दर्ज हो गई। हम जल्द ही आपसे संपर्क करेंगे।",
+    "issue_types": {
+      "item_not_received": "सामान नहीं मिला",
+      "wrong_item": "गलत सामान मिला",
+      "damaged_item": "टूटा-फूटा सामान",
+      "quality_issue": "गुणवत्ता की समस्या",
+      "refund": "रिफंड अनुरोध",
+      "other": "अन्य"
+    }
+  },
+  "common": {
+    "loading": "लोड हो रहा है...",
+    "error": "कुछ गलत हो गया",
+    "retry": "पुनः प्रयास करें",
+    "back": "वापस जाएं",
+    "close": "बंद करें",
+    "save": "सहेजें",
+    "cancel": "रद्द करें",
+    "rupee_symbol": "₹",
+    "free": "मुफ़्त"
+  },
+  "footer": {
+    "about": "ONDC के बारे में",
+    "privacy": "गोपनीयता नीति",
+    "terms": "उपयोग की शर्तें",
+    "grievance": "शिकायत निवारण",
+    "copyright": "ओपन नेटवर्क फॉर डिजिटल कॉमर्स द्वारा संचालित"
+  },
+  "a11y": {
+    "language_toggle": "भाषा बदलें",
+    "cart_count": "टोकरी में {count} आइटम हैं",
+    "product_image": "{name} की तस्वीर",
+    "price_of": "{name} की कीमत {price} है",
+    "loading_products": "उत्पाद लोड हो रहे हैं, कृपया प्रतीक्षा करें",
+    "search_results_loaded": "{count} खोज परिणाम मिले"
+  }
+}
