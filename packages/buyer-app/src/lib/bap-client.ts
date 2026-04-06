@@ -107,10 +107,21 @@ interface CancelParams {
   reason?: { id?: string; descriptor?: { name?: string; short_desc?: string } };
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  }
+  return headers;
+}
+
 async function bapFetch(endpoint: string, body: unknown) {
   const res = await fetch(`${BAP_URL}/api${endpoint}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders(),
     body: JSON.stringify(body),
     cache: "no-store",
   });
@@ -120,7 +131,7 @@ async function bapFetch(endpoint: string, body: unknown) {
 async function bapGet(endpoint: string) {
   const res = await fetch(`${BAP_URL}/api${endpoint}`, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders(),
     cache: "no-store",
   });
   return res.json();

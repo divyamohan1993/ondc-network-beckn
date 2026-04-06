@@ -6,9 +6,12 @@ export const dynamic = 'force-dynamic';
 
 const BPP_URL = process.env.NEXT_PUBLIC_BPP_URL || 'http://bpp:3005';
 
-async function fetchOrders() {
+async function fetchOrders(providerId?: string) {
   try {
-    const res = await fetch(`${BPP_URL}/api/orders`, { cache: 'no-store' });
+    const url = providerId
+      ? `${BPP_URL}/api/orders?provider_id=${encodeURIComponent(providerId)}`
+      : `${BPP_URL}/api/orders`;
+    const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) return { orders: [], total: 0 };
     return res.json();
   } catch {
@@ -19,8 +22,9 @@ async function fetchOrders() {
 export default async function OrdersPage() {
   const cookieStore = await cookies();
   const locale = cookieStore.get('locale')?.value || 'en';
+  const sellerId = cookieStore.get('seller_provider_id')?.value;
   const t = getMessages(locale);
-  const data = await fetchOrders();
+  const data = await fetchOrders(sellerId);
 
   return (
     <div className="space-y-6">

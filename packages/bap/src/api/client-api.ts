@@ -267,6 +267,48 @@ export const registerClientApi: FastifyPluginAsync = async (
   });
 
   // -------------------------------------------------------------------------
+  // GET /api/search/:transactionId -- poll on_search results
+  // -------------------------------------------------------------------------
+  fastify.get<{ Params: { transactionId: string } }>(
+    "/search/:transactionId",
+    async (request, reply) => {
+      const { transactionId } = request.params;
+
+      try {
+        // Look for on_search callback data in transactions table
+        const txnRecords = await fastify.db
+          .select()
+          .from(transactions)
+          .where(eq(transactions.transaction_id, transactionId))
+          .orderBy(desc(transactions.created_at));
+
+        if (txnRecords.length === 0) {
+          return reply.code(404).send({
+            error: "Transaction not found",
+            transaction_id: transactionId,
+          });
+        }
+
+        const callbackRecord = txnRecords.find((r) =>
+          r.action === "on_search",
+        );
+
+        return reply.code(200).send({
+          transaction_id: transactionId,
+          callback_received: callbackRecord != null,
+          callback_data: callbackRecord?.request_body ?? null,
+          status: txnRecords[0]!.status,
+        });
+      } catch (err) {
+        logger.error({ err, transactionId }, "Error polling search results");
+        return reply.code(500).send({
+          error: "Internal error polling search results.",
+        });
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
   // POST /api/select
   // -------------------------------------------------------------------------
   fastify.post<{ Body: SelectBody }>("/select", async (request, reply) => {

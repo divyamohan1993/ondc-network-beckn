@@ -4,7 +4,59 @@ All notable changes to the [dmj.one](https://dmj.one) ONDC Beckn Network platfor
 
 ---
 
-## [1.1.0] — 2025-02-20
+## [2.0.0] -- 2026-04-05
+
+### New Packages
+
+- **Buyer App** (`packages/buyer-app`) -- Next.js 15 consumer storefront with i18n (Hindi + English), address management, product search and ordering
+- **Seller App** (`packages/seller-app`) -- Next.js 15 seller dashboard with i18n (Hindi + English), catalog and order management
+
+### Post-Quantum Cryptography
+
+- **ML-DSA-65** (FIPS 204) hybrid signing -- Ed25519 + ML-DSA-65 dual signatures on Beckn messages. Both must verify. Opt-in via `PQ_CRYPTO_ENABLED=true`.
+- **ML-KEM-768** (FIPS 203) hybrid key encapsulation -- X25519 + ML-KEM-768. Both layers must agree on shared secret.
+- Graceful degradation -- falls back to classical-only if `@noble/post-quantum` is unavailable. No service disruption.
+
+### Indian Law Compliance Modules
+
+- **DPDPA 2023** (`shared/compliance/dpdpa.ts`) -- consent notice generation (Section 5), data principal rights request tracking (Section 8), breach notification deadline calculation (Section 12, 72-hour rule), fiduciary obligation gap analysis (Section 9), cross-border transfer validation (Section 11), legitimate use classification (Section 6)
+- **IT Act 2000** (`shared/compliance/it-act.ts`) -- CERT-In incident severity classification (6h/24h/72h tiers), reportable incident type enumeration per CERT-In Directions 2022
+- **Consumer Protection Act 2019** (`shared/compliance/consumer-protection.ts`) -- seller disclosure schema (E-Commerce Rules 2020 Rule 5), pricing transparency, GRO requirements
+- **GST** (`shared/compliance/gst.ts`) -- GSTIN format validation, HSN code mapping, TCS computation (Section 52 CGST Act)
+
+### Security
+
+- **PII field-level encryption** (`shared/utils/pii-guard.ts`) -- AES-256-GCM encryption of billing name, phone, email, address and fulfillment contact fields in Beckn messages before storage
+- **Key transparency log** (`registry/services/key-transparency.ts`) -- append-only, registry-signed log of all public key changes (registration, rotation, revocation)
+
+### Observability
+
+- **Prometheus + Grafana** monitoring stack in `docker-compose.prod.yml` with scrape config (`monitoring/prometheus.yml`) and alert rules (`monitoring/alerts.yml`)
+- **Metrics collector** (`shared/services/metrics-collector.ts`) -- per-action p50/p95/p99 latency, error rates, SLA violations, Prometheus text format export via `toPrometheus()`
+
+### Services
+
+- **Payment gateway** (`shared/services/payment-gateway.ts`, `razorpay-gateway.ts`) -- payment processing adapter with Razorpay integration (requires Razorpay credentials)
+- **Notification service** (`shared/services/notification-service.ts`, `push-notification-service.ts`) -- SMS and push notifications (requires provider credentials)
+- **Address service** (`shared/services/address-service.ts`) -- address lookup and management
+- **IFSC service** (`shared/services/ifsc-service.ts`) -- bank IFSC code validation
+- **Settlement service** (`shared/services/settlement-service.ts`) -- payment settlement processing
+- **Escalation service** (`shared/services/escalation-service.ts`) -- issue escalation handling
+- **ONDC metrics reporter** (`shared/services/ondc-metrics-reporter.ts`) -- network-level metrics reporting
+
+### Database
+
+- Schema expanded to 1100+ lines (Drizzle ORM)
+- Added consent tracking tables for DPDPA compliance
+
+### Documentation
+
+- Complete rewrite of all public documentation (README, ARCHITECTURE, DEPLOYMENT, SECURITY, CONTRIBUTING)
+- Added KNOWN_LIMITS.md for organizational/legal prerequisites
+
+---
+
+## [1.1.0] -- 2025-02-20
 
 ### CI/CD Pipeline
 

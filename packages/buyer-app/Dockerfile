@@ -1,6 +1,6 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
-RUN corepack enable && corepack prepare pnpm@10.11.0 --activate
+RUN corepack enable && corepack prepare pnpm@10.30.1 --activate
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY packages/buyer-app/package.json packages/buyer-app/
 RUN pnpm install --frozen-lockfile || pnpm install

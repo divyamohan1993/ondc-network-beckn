@@ -1,13 +1,16 @@
+"use client";
+
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SkipNav from "@/components/SkipNav";
 import SearchBar from "@/components/SearchBar";
 import ProductGrid from "@/components/ProductGrid";
 import { ProductGridSkeleton } from "@/components/LoadingSkeleton";
-import { searchProducts } from "@/lib/bap-client";
 import type { Locale } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
-import { Suspense } from "react";
 
 interface CatalogItem {
   id?: string;
@@ -32,9 +35,6 @@ interface CatalogResponse {
 }
 
 function extractProducts(data: unknown) {
-  // BAP search is async. The /api/search returns an ACK with transaction_id.
-  // Results come via on_search callback. For the buyer app, we poll /api/orders/:txn_id
-  // or the BAP provides a webhook. For now, handle both shapes.
   const products: Array<{
     id: string;
     name: string;
@@ -49,7 +49,6 @@ function extractProducts(data: unknown) {
 
   if (!data || typeof data !== "object") return products;
 
-  // If BAP returns catalog data directly (simplified response)
   const resp = data as CatalogResponse;
   const catalog = resp?.message?.catalog;
   if (catalog?.providers) {
@@ -70,7 +69,6 @@ function extractProducts(data: unknown) {
     }
   }
 
-  // If response is an array of catalogs (multiple BPPs)
   if (Array.isArray(data)) {
     for (const entry of data as CatalogResponse[]) {
       const cat = entry?.message?.catalog;
@@ -97,7 +95,10 @@ function extractProducts(data: unknown) {
   return products;
 }
 
-async function SearchResults({
+const POLL_INTERVAL_MS = 2000;
+const POLL_TIMEOUT_MS = 15000;
+
+function SearchResults({
   query,
   domain,
   city,
@@ -108,22 +109,118 @@ async function SearchResults({
   city?: string;
   locale: Locale;
 }) {
-  let products: ReturnType<typeof extractProducts> = [];
-  let searchSent = false;
+  const [products, setProducts] = useState<ReturnType<typeof extractProducts>>([]);
+  const [polling, setPolling] = useState(false);
+  const [done, setDone] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  try {
-    const result = await searchProducts({
-      query,
-      city: city || "std:011",
-      domain: domain || "ONDC:RET10",
-    });
-    products = extractProducts(result);
-    searchSent = result?.message?.ack?.status === "ACK" || !!result?.context?.transaction_id;
-  } catch {
-    // BAP unavailable
+  const cleanup = useCallback(() => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    pollRef.current = null;
+    timeoutRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    if (!query) {
+      setDone(true);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function initiateSearch() {
+      setPolling(true);
+      setDone(false);
+      setProducts([]);
+
+      try {
+        const res = await fetch("/api/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            query,
+            city: city || "std:011",
+            domain: domain || "ONDC:RET10",
+          }),
+        });
+        const data = await res.json();
+
+        // Extract transaction_id for polling
+        const txnId = data?.context?.transaction_id;
+
+        // Check if results came back directly (unlikely in ONDC async, but handle it)
+        const directProducts = extractProducts(data);
+        if (directProducts.length > 0) {
+          if (!cancelled) {
+            setProducts(directProducts);
+            setPolling(false);
+            setDone(true);
+          }
+          return;
+        }
+
+        if (!txnId) {
+          if (!cancelled) {
+            setPolling(false);
+            setDone(true);
+          }
+          return;
+        }
+
+        // Poll for results
+        pollRef.current = setInterval(async () => {
+          try {
+            const pollRes = await fetch(`/api/search?txn=${encodeURIComponent(txnId)}`);
+            const pollData = await pollRes.json();
+
+            if (pollData?.callback_received && pollData?.callback_data) {
+              const newProducts = extractProducts(pollData.callback_data);
+              if (newProducts.length > 0 && !cancelled) {
+                setProducts((prev) => {
+                  const existingIds = new Set(prev.map((p) => p.id));
+                  const unique = newProducts.filter((p) => !existingIds.has(p.id));
+                  return [...prev, ...unique];
+                });
+              }
+            }
+          } catch {
+            // Poll failed, continue trying
+          }
+        }, POLL_INTERVAL_MS);
+
+        // Stop polling after timeout
+        timeoutRef.current = setTimeout(() => {
+          cleanup();
+          if (!cancelled) {
+            setPolling(false);
+            setDone(true);
+          }
+        }, POLL_TIMEOUT_MS);
+      } catch {
+        if (!cancelled) {
+          setPolling(false);
+          setDone(true);
+        }
+      }
+    }
+
+    initiateSearch();
+
+    return () => {
+      cancelled = true;
+      cleanup();
+    };
+  }, [query, domain, city, cleanup]);
+
+  if (!query) return null;
+
+  if (polling && products.length === 0) {
+    return <ProductGridSkeleton />;
   }
 
-  if (products.length === 0) {
+  if (done && products.length === 0) {
     return (
       <div className="text-center py-12" role="status">
         <p className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">
@@ -132,18 +229,18 @@ async function SearchResults({
         <p className="text-[var(--color-text-muted)]">
           {t(locale, "search.try_different")}
         </p>
-        {searchSent && (
-          <p className="text-sm text-[var(--color-text-muted)] mt-4">
-            Search request sent. Results arrive asynchronously via ONDC network.
-            Refresh in a few seconds.
-          </p>
-        )}
       </div>
     );
   }
 
   return (
     <>
+      {polling && (
+        <div className="flex items-center gap-2 mb-4 text-sm text-[var(--color-text-muted)]" role="status" aria-live="polite">
+          <span className="inline-block w-4 h-4 border-2 border-[var(--color-brand)] border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+          Searching ONDC network...
+        </div>
+      )}
       <p className="sr-only" aria-live="polite">
         {t(locale, "a11y.search_results_loaded", { count: products.length })}
       </p>
@@ -152,14 +249,10 @@ async function SearchResults({
   );
 }
 
-export default async function SearchPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string; domain?: string; city?: string; lang?: string }>;
-}) {
-  const params = await searchParams;
-  const locale = (params.lang === "hi" ? "hi" : "en") as Locale;
-  const query = params.q || "";
+function SearchPageContent() {
+  const searchParams = useSearchParams();
+  const locale = (searchParams.get("lang") === "hi" ? "hi" : "en") as Locale;
+  const query = searchParams.get("q") || "";
 
   return (
     <>
@@ -176,16 +269,22 @@ export default async function SearchPage({
           </h1>
         )}
 
-        <Suspense fallback={<ProductGridSkeleton />}>
-          <SearchResults
-            query={query}
-            domain={params.domain}
-            city={params.city}
-            locale={locale}
-          />
-        </Suspense>
+        <SearchResults
+          query={query}
+          domain={searchParams.get("domain") || undefined}
+          city={searchParams.get("city") || undefined}
+          locale={locale}
+        />
       </main>
       <Footer locale={locale} />
     </>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<ProductGridSkeleton />}>
+      <SearchPageContent />
+    </Suspense>
   );
 }

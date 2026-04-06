@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { getMessages } from '@/lib/i18n';
 import OrderTimeline from '@/components/OrderTimeline';
+import OrderActions from './order-actions';
 import { formatRelativeTime } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -70,6 +71,15 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
           </div>
         </dl>
       </div>
+
+      {/* Action Buttons */}
+      <OrderActions
+        transactionId={order.transaction_id}
+        bapId={order.bap_id || ''}
+        latestAction={order.latest_action || ''}
+        domain={order.domain || 'ONDC:RET10'}
+        locale={locale}
+      />
 
       {/* Timeline */}
       <OrderTimeline

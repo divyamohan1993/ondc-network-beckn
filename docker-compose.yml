@@ -17,7 +17,8 @@ services:
       timeout: 5s
       retries: 5
     volumes:
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - ondc-network
     labels:
@@ -558,7 +559,8 @@ services:
       context: .
       dockerfile: packages/buyer-app/Dockerfile
     environment:
-      - NEXT_PUBLIC_BAP_URL=http://bap:3004
+      - NEXT_PUBLIC_BAP_URL=https://bap.${DOMAIN:-ondc.dmj.one}
+      - NEXT_PUBLIC_RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID:-}
       - BAP_URL=http://bap:3004
       - NODE_ENV=${NODE_ENV:-development}
     ports:
@@ -587,7 +589,7 @@ services:
       context: .
       dockerfile: packages/seller-app/Dockerfile
     environment:
-      - NEXT_PUBLIC_BPP_URL=http://bpp:3005
+      - NEXT_PUBLIC_BPP_URL=https://bpp.${DOMAIN:-ondc.dmj.one}
       - NODE_ENV=${NODE_ENV:-development}
     ports:
       - "${SELLER_APP_PORT:-3013}:3000"
@@ -612,7 +614,7 @@ services:
 
   nginx:
     image: nginx:1.28-alpine
-    command: /bin/sh -c "envsubst '$$DOMAIN' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
+    command: /bin/sh -c "if [ ! -f /etc/nginx/ssl/cert.pem ]; then mkdir -p /etc/nginx/ssl && openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/nginx/ssl/key.pem -out /etc/nginx/ssl/cert.pem -subj '/CN=$${DOMAIN}'; fi && envsubst '$$DOMAIN' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && nginx -g 'daemon off;'"
     ports:
       - "80:80"
       - "443:443"
@@ -626,7 +628,7 @@ services:
       - DOMAIN=${DOMAIN:-ondc.dmj.one}
     volumes:
       - ./nginx/nginx.conf.template:/etc/nginx/nginx.conf.template:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/ssl:/etc/nginx/ssl
     depends_on:
       registry:
         condition: service_healthy
@@ -647,6 +649,9 @@ services:
     labels:
       ondc.service.type: infrastructure
       ondc.service.name: nginx
+
+volumes:
+  postgres_data:
 
 networks:
   ondc-network:

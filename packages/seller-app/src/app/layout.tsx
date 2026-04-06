@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 import LanguageToggle from '@/components/LanguageToggle';
+import AuthGuard from '@/components/AuthGuard';
 import { getMessages } from '@/lib/i18n';
 import { cookies } from 'next/headers';
 
@@ -41,23 +42,25 @@ export default async function RootLayout({
           {t.app.skip_nav}
         </a>
 
-        <div className="flex h-screen overflow-hidden">
-          <Sidebar locale={locale} translations={t.nav} />
+        <AuthGuard>
+          <div className="flex h-screen overflow-hidden">
+            <Sidebar locale={locale} translations={t.nav} />
 
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <header className="h-14 border-b border-surface-border bg-abyss/80 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
-              <h1 className="text-sm font-semibold text-white font-display sr-only">{t.app.name}</h1>
-              <div />
-              <LanguageToggle locale={locale} label={t.app.language} />
-            </header>
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <header className="h-14 border-b border-surface-border bg-abyss/80 backdrop-blur-sm flex items-center justify-between px-6 shrink-0">
+                <h1 className="text-sm font-semibold text-white font-display sr-only">{t.app.name}</h1>
+                <div />
+                <LanguageToggle locale={locale} label={t.app.language} />
+              </header>
 
-            <main id="main-content" className="flex-1 overflow-y-auto bg-grid" role="main" tabIndex={-1}>
-              <div className="p-6 sm:p-8 max-w-[1600px] mx-auto">
-                {children}
-              </div>
-            </main>
+              <main id="main-content" className="flex-1 overflow-y-auto bg-grid" role="main" tabIndex={-1}>
+                <div className="p-6 sm:p-8 max-w-[1600px] mx-auto">
+                  {children}
+                </div>
+              </main>
+            </div>
           </div>
-        </div>
+        </AuthGuard>
       </body>
     </html>
   );

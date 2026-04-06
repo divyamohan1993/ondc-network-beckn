@@ -414,7 +414,9 @@ export const registerProviderApi: FastifyPluginAsync = async (
   // -------------------------------------------------------------------------
   // GET /api/orders
   // -------------------------------------------------------------------------
-  fastify.get("/orders", async (_request, reply) => {
+  fastify.get<{ Querystring: { provider_id?: string } }>("/orders", async (request, reply) => {
+    const providerIdFilter = (request.query as Record<string, string>).provider_id;
+
     try {
       // Retrieve incoming orders (actions like select, init, confirm sent to this BPP)
       const orderRecords = await fastify.db
@@ -476,9 +478,26 @@ export const registerProviderApi: FastifyPluginAsync = async (
         }
       }
 
+      let orders = Array.from(ordersMap.values());
+
+      // Filter by provider_id if specified
+      if (providerIdFilter) {
+        orders = orders.filter((o) => {
+          // Check if any action's request body references this provider
+          const actions = o.actions as Array<{ action: string }>;
+          for (const record of orderRecords) {
+            if (record.transaction_id !== o.transaction_id) continue;
+            const body = record.request_body as any;
+            const providerId = body?.message?.order?.provider?.id;
+            if (providerId === providerIdFilter) return true;
+          }
+          return false;
+        });
+      }
+
       return reply.code(200).send({
-        orders: Array.from(ordersMap.values()),
-        total: ordersMap.size,
+        orders,
+        total: orders.length,
       });
     } catch (err) {
       logger.error({ err }, "Error listing orders");

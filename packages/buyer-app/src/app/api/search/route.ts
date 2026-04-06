@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchProducts } from "@/lib/bap-client";
+import { searchProducts, getOrderByTxnId } from "@/lib/bap-client";
 import { guardApiRoute } from "@/lib/api-guard";
 
 export async function POST(request: NextRequest) {
@@ -19,6 +19,29 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     return NextResponse.json(
       { error: { code: "SEARCH_ERROR", message: "Search request failed", details: String(err) } },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: NextRequest) {
+  const blocked = guardApiRoute(request);
+  if (blocked) return blocked;
+
+  const txn = request.nextUrl.searchParams.get("txn");
+  if (!txn) {
+    return NextResponse.json(
+      { error: { code: "VALIDATION", message: "txn query parameter is required" } },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const result = await getOrderByTxnId(txn);
+    return NextResponse.json(result);
+  } catch (err) {
+    return NextResponse.json(
+      { error: { code: "POLL_ERROR", message: "Failed to fetch search results", details: String(err) } },
       { status: 500 }
     );
   }

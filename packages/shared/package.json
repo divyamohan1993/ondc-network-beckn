@@ -37,6 +37,7 @@
     "uuid": "^11.1.0"
   },
   "optionalDependencies": {
+    "google-auth-library": "^9.15.1",
     "nodemailer": "^8.0.4"
   },
   "devDependencies": {

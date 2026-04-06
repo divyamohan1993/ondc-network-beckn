@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for considering contributing to the [dmj.one](https://dmj.one) ONDC Beckn Network. Every contribution makes open commerce more accessible.
+Contributions welcome. Every contribution makes open commerce more accessible.
 
 ## Getting Started
 
@@ -14,30 +14,33 @@ cd ondc-network-beckn
 ### 2. Install Dependencies
 
 ```bash
-# Requires Node.js 22 and pnpm 10+
+# Requires Node.js 22+ and pnpm 10+
 corepack enable
 pnpm install
 ```
 
-### 3. Set Up Local Environment
+### 3. Local Environment
 
 ```bash
-# Copy environment template
 cp .env.example .env
 
 # Start infrastructure
 docker compose up postgres redis rabbitmq -d
 
-# Run in development mode
+# Run all services in dev mode
 pnpm dev
+
+# Or run a single service
+pnpm --filter @ondc/registry dev
 ```
 
 ### 4. Run Tests
 
 ```bash
-pnpm test              # Run all tests
+pnpm test              # ~1400 tests across 42 files
 pnpm test:watch        # Watch mode
-pnpm test:coverage     # Coverage report
+pnpm test:coverage     # V8 coverage report
+pnpm test:ui           # Browser-based test UI
 ```
 
 ## Development Workflow
@@ -47,7 +50,7 @@ pnpm test:coverage     # Coverage report
 ```
 feature/<description>     New functionality
 fix/<description>         Bug fix
-docs/<description>        Documentation only
+docs/<description>        Documentation
 refactor/<description>    Code restructuring
 test/<description>        Test additions
 ```
@@ -66,77 +69,68 @@ refactor(bap): extract order state machine to shared package
 
 ### Pull Requests
 
-1. Create a branch from `main`
+1. Branch from `main`
 2. Make focused, incremental changes
-3. Ensure all tests pass (`pnpm test`)
-4. Ensure the build succeeds (`pnpm build`)
-5. Write a clear PR description explaining **what** and **why**
-6. Link related issues
+3. `pnpm build && pnpm test` must pass
+4. Clear PR description explaining what and why
+5. Link related issues
 
 ### CI Pipeline
 
-Every push to `main` and every PR triggers:
+Every push triggers:
 
-- **Build** — Turborepo builds all packages in dependency order
-- **Test** — Vitest runs all test suites
-- **Docker Build** — Changed services are built and pushed to GHCR (on merge to `main`)
+- **Build** -- Turborepo builds all 15 packages in dependency order
+- **Test** -- Vitest runs all test suites
+- **Docker Build** -- changed services built and pushed to GHCR (on merge to `main`)
 
-CI uses the same Node.js and pnpm versions defined in `package.json` (`packageManager` field). If CI fails, check locally with `pnpm build && pnpm test`.
+## Where to Make Changes
 
-## Project Structure
-
-Understanding where to make changes:
-
-| What You're Changing | Where |
-|---------------------|-------|
+| What | Where |
+|------|-------|
 | Beckn protocol logic | `packages/shared/src/protocol/` |
-| Cryptographic operations | `packages/shared/src/crypto/` |
+| Cryptography (Ed25519, PQ, PII) | `packages/shared/src/crypto/` + `packages/shared/src/utils/pii-guard.ts` |
 | Middleware (rate limit, auth, etc.) | `packages/shared/src/middleware/` |
+| Compliance (DPDPA, IT Act, CPA, GST) | `packages/shared/src/compliance/` |
 | Database schema | `packages/shared/src/db/schema.ts` + `db/init.sql` |
+| Payment/notification services | `packages/shared/src/services/` |
 | Registry API | `packages/registry/src/` |
 | Gateway routing | `packages/gateway/src/` |
 | BAP/BPP adapters | `packages/bap/src/` or `packages/bpp/src/` |
+| Buyer storefront | `packages/buyer-app/src/` |
+| Seller dashboard | `packages/seller-app/src/` |
 | Admin dashboard | `packages/admin/src/` |
 | Agent services | `packages/<agent>/src/` |
-| Docker config | `docker-compose.yml` / `docker-compose.prod.yml` / `docker-compose.deploy.yml` / Dockerfiles |
+| Docker config | `docker-compose*.yml` and Dockerfiles |
 | Nginx routing | `nginx/nginx.conf` |
-| CI/CD workflows | `.github/workflows/ci.yml`, `.github/workflows/docker.yml` |
-| Deployment scripts | `autoconfig.sh`, `simulate.sh`, `teardown.sh`, `scripts/setup-server.sh`, `scripts/deploy.sh` |
+| Monitoring | `monitoring/prometheus.yml`, `monitoring/alerts.yml` |
+| CI/CD | `.github/workflows/` |
+| Scripts | `autoconfig.sh`, `simulate.sh`, `teardown.sh`, `scripts/` |
 
 ## Code Style
 
-- **TypeScript strict mode** — No `any`, no implicit returns
-- **ESM** — Use `import`/`export`, file extensions in imports (`.js`)
-- **Functional middleware** — Factory functions that return Fastify plugins
-- **Drizzle ORM** — Type-safe queries, no raw SQL in application code
-- **Pino logging** — Structured JSON logs, no `console.log`
+- **TypeScript strict mode** -- no `any`, no implicit returns
+- **ESM** -- `import`/`export`, file extensions in imports (`.js`)
+- **Functional middleware** -- factory functions returning Fastify plugins
+- **Drizzle ORM** -- type-safe queries, no raw SQL in application code
+- **Pino logging** -- structured JSON, no `console.log`
+- **i18n** -- buyer-app and seller-app use i18n for all user-facing strings (Hindi + English baseline)
 
 ## Testing
 
-- **Unit tests** co-locate with source: `foo.ts` → `foo.test.ts`
-- **Integration tests** in `tests/integration/`
-- **E2E tests** in `tests/e2e/`
-- **Test runner:** Vitest
-- **Coverage target:** Maintain or improve existing coverage
+- Unit tests co-locate with source: `foo.ts` -> `foo.test.ts`
+- Integration tests in `tests/integration/`
+- E2E tests in `tests/e2e/`
+- Runner: Vitest with V8 coverage
+- Target: maintain or improve existing coverage
 
 ## Security
 
-If you discover a security vulnerability, please **do not** open a public issue. See [SECURITY.md](SECURITY.md) for responsible disclosure instructions.
+If you discover a security vulnerability, **do not** open a public issue. See [SECURITY.md](SECURITY.md).
 
 ## Code of Conduct
 
-This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to uphold this standard.
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Questions?
 
-Open a [Discussion](https://github.com/divyamohan1993/ondc-network-beckn/discussions) for questions, ideas, or feedback.
-
----
-
-*Your contributions help make digital commerce open and accessible for everyone.*
-
----
-
-<p align="center">
-  <sub>A <a href="https://dmj.one">dmj.one</a> initiative</sub>
-</p>
+Open a [Discussion](https://github.com/divyamohan1993/ondc-network-beckn/discussions).

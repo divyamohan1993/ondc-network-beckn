@@ -1,11 +1,50 @@
 "use client";
 
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useCart } from "@/lib/cart-store";
 import type { Locale } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 import LanguageToggle from "./LanguageToggle";
 import { Suspense } from "react";
+
+function AuthLink({ locale }: { locale: Locale }) {
+  const [phone, setPhone] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    setPhone(localStorage.getItem("auth_phone"));
+  }, []);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_phone");
+    setPhone(null);
+    window.location.reload();
+  }, []);
+
+  if (!mounted) return null;
+
+  if (phone) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-[var(--color-text-muted)] hidden sm:inline">
+          {phone}
+        </span>
+        <button onClick={logout} className="btn-sm btn-secondary" type="button">
+          {locale === "hi" ? "लॉगआउट" : "Logout"}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Link href={`/login?lang=${locale}`} className="btn-sm btn-secondary">
+      {locale === "hi" ? "लॉग इन" : "Login"}
+    </Link>
+  );
+}
 
 function CartBadge({ locale }: { locale: Locale }) {
   const { totalItems } = useCart();
@@ -97,6 +136,7 @@ export default function Header({ locale }: { locale: Locale }) {
             {t(locale, "nav.support")}
           </Link>
           <CartBadge locale={locale} />
+          <AuthLink locale={locale} />
           <LanguageToggleWrapper locale={locale} />
         </nav>
       </div>

@@ -12,6 +12,12 @@ import { t } from "@/lib/i18n";
 
 const PAYMENT_TIMEOUT_SECONDS = 600;
 
+declare global {
+  interface Window {
+    Razorpay: new (options: Record<string, unknown>) => { open: () => void };
+  }
+}
+
 function PaymentContent() {
   const searchParams = useSearchParams();
   const locale = (searchParams.get("lang") === "hi" ? "hi" : "en") as Locale;
@@ -26,6 +32,21 @@ function PaymentContent() {
 
   const [timeLeft, setTimeLeft] = useState(PAYMENT_TIMEOUT_SECONDS);
   const [status, setStatus] = useState<"pending" | "processing" | "success" | "failed">("pending");
+  const [razorpayLoaded, setRazorpayLoaded] = useState(false);
+
+  // Load Razorpay checkout script
+  useEffect(() => {
+    if (method !== "card" && method !== "razorpay") return;
+    const existing = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existing) {
+      setRazorpayLoaded(true);
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => setRazorpayLoaded(true);
+    document.body.appendChild(script);
+  }, [method]);
 
   useEffect(() => {
     if (status !== "pending") return;
@@ -41,6 +62,82 @@ function PaymentContent() {
     }, 1000);
     return () => clearInterval(interval);
   }, [status]);
+
+  const openRazorpay = useCallback(async () => {
+    if (!razorpayLoaded || !window.Razorpay) {
+      setStatus("failed");
+      return;
+    }
+    setStatus("processing");
+
+    try {
+      // Create a Razorpay order via our backend
+      const res = await fetch("/api/payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transaction_id: txnId,
+          bpp_id: bppId,
+          bpp_uri: bppUri,
+          payment_method: "card",
+          amount: String(amount),
+          create_gateway_order: true,
+        }),
+      });
+      const data = await res.json();
+      const gatewayOrderId = data?.gateway_order_id || data?.context?.transaction_id;
+
+      const phone = localStorage.getItem("auth_phone") || "";
+
+      const options: Record<string, unknown> = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: Math.round(amount * 100),
+        currency: "INR",
+        name: "ONDC",
+        description: `Order ${txnId}`,
+        order_id: gatewayOrderId,
+        handler: async (response: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string }) => {
+          try {
+            await fetch("/api/payment", {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+                transaction_id: txnId,
+                bpp_id: bppId,
+                bpp_uri: bppUri,
+              }),
+            });
+            setStatus("success");
+            clearCart();
+            setTimeout(() => {
+              router.push(`/orders/${txnId}?lang=${locale}`);
+            }, 2000);
+          } catch {
+            setStatus("failed");
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setStatus("pending");
+          },
+        },
+        prefill: {
+          contact: phone ? `+91${phone}` : "",
+        },
+        theme: {
+          color: "#F97316",
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch {
+      setStatus("failed");
+    }
+  }, [razorpayLoaded, txnId, bppId, bppUri, amount, clearCart, router, locale]);
 
   const confirmPayment = useCallback(async () => {
     setStatus("processing");
@@ -113,22 +210,23 @@ function PaymentContent() {
             <p className="text-[var(--color-text-secondary)]">{t(locale, "payment.cod_instruction")}</p>
           )}
 
-          {method === "card" && status === "pending" && (
-            <div className="text-left space-y-4">
-              <div>
-                <label htmlFor="card-number" className="form-label">Card Number</label>
-                <input id="card-number" type="text" inputMode="numeric" placeholder="XXXX XXXX XXXX XXXX" className="form-input" autoComplete="cc-number" maxLength={19} />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="card-expiry" className="form-label">Expiry</label>
-                  <input id="card-expiry" type="text" placeholder="MM/YY" className="form-input" autoComplete="cc-exp" maxLength={5} />
-                </div>
-                <div>
-                  <label htmlFor="card-cvv" className="form-label">CVV</label>
-                  <input id="card-cvv" type="password" placeholder="***" className="form-input" autoComplete="cc-csc" maxLength={4} />
-                </div>
-              </div>
+          {(method === "card" || method === "razorpay") && status === "pending" && (
+            <div className="space-y-3">
+              <p className="text-[var(--color-text-secondary)] text-sm">
+                {locale === "hi"
+                  ? "कार्ड, UPI, नेटबैंकिंग से भुगतान करें"
+                  : "Pay securely via Card, UPI, or Netbanking"}
+              </p>
+              <button
+                onClick={openRazorpay}
+                disabled={!razorpayLoaded}
+                className="btn btn-primary w-full"
+                type="button"
+              >
+                {razorpayLoaded
+                  ? (locale === "hi" ? "भुगतान करें" : "Pay Now")
+                  : (locale === "hi" ? "लोड हो रहा है..." : "Loading...")}
+              </button>
             </div>
           )}
 
@@ -151,7 +249,7 @@ function PaymentContent() {
             </div>
           )}
 
-          {status === "pending" && (
+          {status === "pending" && method !== "card" && method !== "razorpay" && (
             <button onClick={confirmPayment} className="btn btn-primary w-full" type="button">
               {method === "cod" ? t(locale, "checkout.place_order") : t(locale, "payment.pay_now")}
             </button>
