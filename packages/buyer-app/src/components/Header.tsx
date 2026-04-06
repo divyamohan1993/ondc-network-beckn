@@ -48,7 +48,10 @@ function AuthLink({ locale }: { locale: Locale }) {
 
 function CartBadge({ locale }: { locale: Locale }) {
   const { totalItems } = useCart();
-  const countLabel = t(locale, "a11y.cart_count", { count: totalItems });
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  const displayCount = mounted ? totalItems : 0;
+  const countLabel = t(locale, "a11y.cart_count", { count: displayCount });
 
   return (
     <Link
@@ -72,12 +75,12 @@ function CartBadge({ locale }: { locale: Locale }) {
         <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
       </svg>
       <span className="font-bold">{t(locale, "nav.cart")}</span>
-      {totalItems > 0 && (
+      {displayCount > 0 && (
         <span
           className="absolute -top-1 -right-1 w-5 h-5 bg-[var(--color-error)] text-[var(--color-text-inverse)] text-[11px] font-bold rounded-full flex items-center justify-center"
           aria-hidden="true"
         >
-          {totalItems > 99 ? "99+" : totalItems}
+          {displayCount > 99 ? "99+" : displayCount}
         </span>
       )}
     </Link>
