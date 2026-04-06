@@ -1,5 +1,5 @@
 import type { Redis } from "ioredis";
-import { createLogger, validateCatalogItems, validateIndianLawCompliance, buildFeatureListTag, DEFAULT_BPP_FEATURES, sanitizeCatalog, inventory } from "@ondc/shared";
+import { createLogger, validateCatalogItems, validateIndianLawCompliance, buildFeatureListTag, DEFAULT_BPP_FEATURES, sanitizeCatalog, inventory, productVariants } from "@ondc/shared";
 import type { Catalog, Provider, Item, SearchIntent, Database } from "@ondc/shared";
 import { eq } from "drizzle-orm";
 
@@ -353,6 +353,97 @@ export async function buildOnSearchResponse(
       }
     } catch (err) {
       logger.error({ err, subscriberId }, "Failed to enrich catalog with inventory data");
+    }
+  }
+
+  // Enrich items with product variant data and add variant items to catalog
+  if (db) {
+    try {
+      const providerId = storedCatalog.provider.id ?? subscriberId;
+      const allVariants = await db
+        .select()
+        .from(productVariants)
+        .where(eq(productVariants.provider_id, providerId));
+
+      if (allVariants.length > 0) {
+        // Group variants by parent_item_id
+        const variantsByParent = new Map<string, typeof allVariants>();
+        for (const v of allVariants) {
+          if (!v.is_active) continue;
+          const list = variantsByParent.get(v.parent_item_id) ?? [];
+          list.push(v);
+          variantsByParent.set(v.parent_item_id, list);
+        }
+
+        const variantItems: Item[] = [];
+
+        for (const item of filteredItems) {
+          const itemVariants = variantsByParent.get(item.id ?? "");
+          if (!itemVariants || itemVariants.length === 0) continue;
+
+          // Group by variant_group for ONDC-compliant tags
+          const groups = new Map<string, Array<{ value: string; variantItemId: string }>>();
+          for (const v of itemVariants) {
+            const list = groups.get(v.variant_group) ?? [];
+            list.push({ value: v.variant_value, variantItemId: v.variant_item_id });
+            groups.set(v.variant_group, list);
+          }
+
+          // Add variant_group tags to the parent item
+          const variantTags: any[] = [];
+          for (const [group, values] of groups) {
+            variantTags.push({
+              code: "attr",
+              list: [
+                { code: "name", value: group },
+                { code: "value", value: values.map((v) => v.value).join(",") },
+              ],
+            });
+          }
+
+          // Add variant_group tag to parent item
+          const existingItemTags: any[] = Array.isArray(item.tags) ? [...item.tags] : [];
+          existingItemTags.push({
+            code: "variant_group",
+            list: variantTags.flatMap((t) => t.list),
+          });
+          item.tags = existingItemTags;
+
+          // Create related variant items
+          for (const v of itemVariants) {
+            const parentItem = item;
+            const variantItem: Item = {
+              ...parentItem,
+              id: v.variant_item_id,
+              parent_item_id: item.id,
+              price: v.price
+                ? { value: v.price, currency: parentItem.price?.currency ?? "INR" }
+                : parentItem.price,
+              quantity: {
+                available: { count: v.stock_quantity ?? 0 },
+              },
+              tags: [
+                {
+                  code: "attr",
+                  list: [
+                    { code: "name", value: v.variant_group },
+                    { code: "value", value: v.variant_value },
+                  ],
+                },
+                ...(v.sku
+                  ? [{ code: "sku", list: [{ code: "value", value: v.sku }] }]
+                  : []),
+              ],
+            };
+            variantItems.push(variantItem);
+          }
+        }
+
+        // Append variant items to the filtered items list
+        filteredItems = [...filteredItems, ...variantItems];
+      }
+    } catch (err) {
+      logger.error({ err, subscriberId }, "Failed to enrich catalog with variant data");
     }
   }
 

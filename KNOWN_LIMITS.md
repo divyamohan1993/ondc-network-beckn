@@ -30,3 +30,11 @@ These items require organizational/legal action and cannot be resolved through c
 - **SSL certificates** -- production Let's Encrypt or commercial CA certificate (self-signed won't pass ONDC OCSP validation)
 - **Domain setup** -- DNS A/AAAA records, TXT records with signing public key
 - **India region deployment** -- DPDPA requires Indian personal data to be processed in India (aws ap-south-1, gce asia-south1)
+- **RabbitMQ** -- required for BAP action queue (reliable BPP delivery with retry/DLQ). Deploy with HA policy in production.
+- **Redis** -- required for webhook registrations, rate limiting, catalog cache. Deploy with persistence (AOF/RDB) and Sentinel/Cluster for HA.
+
+## Dependency Audit (Residual)
+- **esbuild <=0.24.2** -- moderate severity, transitive via drizzle-kit (dev-only tool). Risk: dev server CORS bypass. No production impact. Will resolve when drizzle-kit updates its bundled esbuild-kit dependency.
+
+## Rate Limiting
+- **In-memory rate limiter** -- buyer-app and seller-app use Map-based in-memory rate limiting. Works for single-instance deployments. For horizontal scaling behind a load balancer, replace with Redis-backed rate limiting to share state across instances.

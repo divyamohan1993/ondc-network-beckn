@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
-import en from '@/i18n/en.json';
-import hi from '@/i18n/hi.json';
+import { getMessages } from '@/lib/i18n';
 import InventoryClient from './inventory-client';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +19,7 @@ async function fetchInventory() {
 export default async function InventoryPage() {
   const cookieStore = await cookies();
   const locale = cookieStore.get('locale')?.value || 'en';
-  const t = locale === 'hi' ? hi : en;
+  const t = getMessages(locale);
   const data = await fetchInventory();
 
   return (

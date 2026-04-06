@@ -7,6 +7,12 @@ const logger = createLogger("bpp-webhook");
 /** Redis key prefix for webhook registrations. */
 const WEBHOOK_PREFIX = "ondc:bpp:webhook:";
 
+/** Max retry attempts for webhook delivery. */
+const MAX_RETRIES = 3;
+
+/** Base delay between retries in ms. Actual delay = BASE_RETRY_DELAY * 2^attempt. */
+const BASE_RETRY_DELAY = 1000;
+
 export interface WebhookRegistration {
   url: string;
   events: string[];
@@ -35,7 +41,74 @@ export async function registerWebhook(
 }
 
 /**
+ * Deliver a webhook POST with exponential backoff retry.
+ * Retries on network errors and 5xx responses. Does not retry 4xx (client errors).
+ */
+async function deliverWithRetry(
+  url: string,
+  payload: string,
+  subscriberId: string,
+  event: string,
+): Promise<void> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const { statusCode } = await httpRequest(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: payload,
+        headersTimeout: 10_000,
+        bodyTimeout: 10_000,
+      });
+
+      if (statusCode >= 200 && statusCode < 400) {
+        logger.info(
+          { subscriberId, event, statusCode, attempt },
+          "Webhook notification delivered",
+        );
+        return;
+      }
+
+      if (statusCode >= 400 && statusCode < 500) {
+        // Client error from the receiver. Do not retry.
+        logger.warn(
+          { subscriberId, event, webhookUrl: url, statusCode, attempt },
+          "Webhook delivery returned client error, not retrying",
+        );
+        return;
+      }
+
+      // 5xx -- retry
+      lastError = new Error(`Webhook returned ${statusCode}`);
+      logger.warn(
+        { subscriberId, event, webhookUrl: url, statusCode, attempt },
+        "Webhook delivery returned server error, will retry",
+      );
+    } catch (err) {
+      lastError = err;
+      logger.warn(
+        { err, subscriberId, event, webhookUrl: url, attempt },
+        "Webhook delivery network error, will retry",
+      );
+    }
+
+    // Exponential backoff before next attempt
+    if (attempt < MAX_RETRIES) {
+      const delay = BASE_RETRY_DELAY * Math.pow(2, attempt);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+
+  logger.error(
+    { err: lastError, subscriberId, event, webhookUrl: url, maxRetries: MAX_RETRIES },
+    "Webhook delivery failed after all retries",
+  );
+}
+
+/**
  * Look up the registered webhook for a subscriber and POST event data to it.
+ * Delivery is retried up to MAX_RETRIES times with exponential backoff.
  *
  * @param subscriberId - The seller app's subscriber ID.
  * @param event - The event name (e.g. "search", "confirm").
@@ -77,23 +150,12 @@ export async function notifyWebhook(
       "Sending webhook notification",
     );
 
-    const { statusCode } = await httpRequest(registration.url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ event, data }),
-    });
-
-    if (statusCode >= 400) {
-      logger.warn(
-        { subscriberId, event, webhookUrl: registration.url, statusCode },
-        "Webhook delivery returned error status",
-      );
-    } else {
-      logger.info(
-        { subscriberId, event, statusCode },
-        "Webhook notification delivered",
-      );
-    }
+    await deliverWithRetry(
+      registration.url,
+      JSON.stringify({ event, data }),
+      subscriberId,
+      event,
+    );
   } catch (err) {
     logger.error(
       { err, subscriberId, event },

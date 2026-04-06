@@ -1041,3 +1041,118 @@ export const deviceTokens = pgTable(
 );
 
 export type DeviceToken = InferSelectModel<typeof deviceTokens>;
+
+// ---------------------------------------------------------------------------
+// Product Variants (Size/Color/Weight)
+// ---------------------------------------------------------------------------
+
+export const productVariants = pgTable(
+  "product_variants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    provider_id: text("provider_id").notNull(),
+    parent_item_id: text("parent_item_id").notNull(),
+    variant_item_id: text("variant_item_id").unique().notNull(),
+    variant_group: text("variant_group").notNull(),
+    variant_value: text("variant_value").notNull(),
+    price: numeric("price", { precision: 12, scale: 2 }),
+    mrp: numeric("mrp", { precision: 12, scale: 2 }),
+    sku: text("sku"),
+    stock_quantity: integer("stock_quantity").default(0),
+    is_active: boolean("is_active").default(true),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_pv_parent").on(table.parent_item_id),
+    index("idx_pv_provider").on(table.provider_id),
+  ],
+);
+
+export type ProductVariant = InferSelectModel<typeof productVariants>;
+
+// ---------------------------------------------------------------------------
+// India Pincodes (Address Validation)
+// ---------------------------------------------------------------------------
+
+export const indiaPincodes = pgTable(
+  "india_pincodes",
+  {
+    pincode: text("pincode").primaryKey(),
+    city: text("city").notNull(),
+    state: text("state").notNull(),
+    district: text("district"),
+    region: text("region"),
+    latitude: numeric("latitude", { precision: 10, scale: 7 }),
+    longitude: numeric("longitude", { precision: 10, scale: 7 }),
+    delivery_available: boolean("delivery_available").default(true),
+  },
+  (table) => [
+    index("idx_pincodes_city").on(table.city),
+    index("idx_pincodes_state").on(table.state),
+  ],
+);
+
+export type IndiaPincode = InferSelectModel<typeof indiaPincodes>;
+
+// ---------------------------------------------------------------------------
+// User Accounts (Phone-based OTP Auth)
+// ---------------------------------------------------------------------------
+
+export const users = pgTable(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    phone: text("phone").unique().notNull(),
+    name: text("name"),
+    email: text("email"),
+    preferred_language: text("preferred_language").default("en"),
+    default_address: jsonb("default_address"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_users_phone").on(table.phone),
+  ],
+);
+
+export type User = InferSelectModel<typeof users>;
+
+export const otpRequests = pgTable(
+  "otp_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    phone: text("phone").notNull(),
+    otp_hash: text("otp_hash").notNull(),
+    expires_at: timestamp("expires_at", { withTimezone: true }).notNull(),
+    verified: boolean("verified").default(false),
+    attempts: integer("attempts").default(0),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_otp_phone").on(table.phone),
+    index("idx_otp_expires").on(table.expires_at),
+  ],
+);
+
+export type OtpRequest = InferSelectModel<typeof otpRequests>;
+
+export const userSessions = pgTable(
+  "user_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    user_id: uuid("user_id")
+      .notNull()
+      .references(() => users.id),
+    token_hash: text("token_hash").unique().notNull(),
+    expires_at: timestamp("expires_at", { withTimezone: true }).notNull(),
+    device_info: text("device_info"),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+  },
+  (table) => [
+    index("idx_sessions_token").on(table.token_hash),
+    index("idx_sessions_user").on(table.user_id),
+  ],
+);
+
+export type UserSession = InferSelectModel<typeof userSessions>;

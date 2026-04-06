@@ -7,3 +7,4 @@ export { createNetworkPolicyMiddleware, type NetworkPolicyConfig, ACTION_RESPONS
 export { createDuplicateDetector, type DuplicateDetectorConfig } from "./duplicate-detector.js";
 export { tracingMiddleware, buildTraceHeaders, buildTraceHeadersFromContext, TRACE_ID_HEADER, SPAN_ID_HEADER, PARENT_SPAN_HEADER } from "./tracing.js";
 export { metricsMiddleware } from "./metrics.js";
+export { createUserAuthMiddleware } from "./user-auth.js";

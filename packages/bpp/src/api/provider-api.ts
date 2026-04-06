@@ -26,6 +26,7 @@ import {
 import type { LogisticsConfig } from "../services/logistics-client.js";
 import { InventoryService } from "../services/inventory-service.js";
 import type { ImageService } from "../services/image-service.js";
+import { VariantService } from "../services/variant-service.js";
 
 const logger = createLogger("bpp-provider-api");
 
@@ -81,6 +82,19 @@ interface InventoryUpdateBody {
   low_stock_threshold?: number;
   max_quantity_per_order?: number;
   provider_id?: string;
+}
+
+interface VariantCreateBody {
+  provider_id?: string;
+  parent_item_id: string;
+  variants: Array<{
+    variant_group: string;
+    variant_value: string;
+    price?: number;
+    mrp?: number;
+    sku?: string;
+    stock_quantity?: number;
+  }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -859,6 +873,125 @@ export const registerProviderApi: FastifyPluginAsync = async (
         logger.error({ err, filename }, "Image deletion failed");
         return reply.code(500).send({
           error: { code: "INTERNAL_ERROR", message: "Failed to delete image.", details: [] },
+        });
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /api/variants -- create/update variants for a product
+  // -------------------------------------------------------------------------
+  fastify.post<{ Body: VariantCreateBody }>(
+    "/variants",
+    async (request, reply) => {
+      const { parent_item_id, variants, provider_id } = request.body;
+
+      if (!parent_item_id || !variants || !Array.isArray(variants) || variants.length === 0) {
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: "parent_item_id and variants[] are required.", details: [] },
+        });
+      }
+
+      const providerId = provider_id ?? fastify.config.bppId;
+      const variantService = new VariantService(fastify.db);
+
+      try {
+        const created: string[] = [];
+        for (const v of variants) {
+          if (!v.variant_group || !v.variant_value) {
+            return reply.code(400).send({
+              error: { code: "BAD_REQUEST", message: "Each variant requires variant_group and variant_value.", details: [] },
+            });
+          }
+          const variantItemId = await variantService.createVariant({
+            providerId,
+            parentItemId: parent_item_id,
+            variantGroup: v.variant_group,
+            variantValue: v.variant_value,
+            price: v.price,
+            mrp: v.mrp,
+            sku: v.sku,
+            stockQuantity: v.stock_quantity,
+          });
+          created.push(variantItemId);
+        }
+
+        return reply.code(200).send({
+          status: "created",
+          parent_item_id,
+          provider_id: providerId,
+          variant_ids: created,
+          count: created.length,
+        });
+      } catch (err) {
+        logger.error({ err, parent_item_id }, "Error creating variants");
+        return reply.code(500).send({
+          error: { code: "INTERNAL_ERROR", message: "Internal error creating variants.", details: [] },
+        });
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /api/variants/:itemId -- get variants for a product
+  // -------------------------------------------------------------------------
+  fastify.get<{ Params: { itemId: string } }>(
+    "/variants/:itemId",
+    async (request, reply) => {
+      const { itemId } = request.params;
+
+      if (!itemId) {
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: "itemId is required.", details: [] },
+        });
+      }
+
+      const variantService = new VariantService(fastify.db);
+
+      try {
+        const groups = await variantService.getVariants(itemId);
+
+        return reply.code(200).send({
+          parent_item_id: itemId,
+          variant_groups: groups,
+          total_variants: groups.reduce((sum, g) => sum + g.values.length, 0),
+        });
+      } catch (err) {
+        logger.error({ err, itemId }, "Error retrieving variants");
+        return reply.code(500).send({
+          error: { code: "INTERNAL_ERROR", message: "Internal error retrieving variants.", details: [] },
+        });
+      }
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // DELETE /api/variants/:variantId -- soft-delete a variant
+  // -------------------------------------------------------------------------
+  fastify.delete<{ Params: { variantId: string } }>(
+    "/variants/:variantId",
+    async (request, reply) => {
+      const { variantId } = request.params;
+
+      if (!variantId) {
+        return reply.code(400).send({
+          error: { code: "BAD_REQUEST", message: "variantId is required.", details: [] },
+        });
+      }
+
+      const variantService = new VariantService(fastify.db);
+
+      try {
+        await variantService.deleteVariant(variantId);
+
+        return reply.code(200).send({
+          status: "deleted",
+          variant_id: variantId,
+        });
+      } catch (err) {
+        logger.error({ err, variantId }, "Error deleting variant");
+        return reply.code(500).send({
+          error: { code: "INTERNAL_ERROR", message: "Internal error deleting variant.", details: [] },
         });
       }
     },

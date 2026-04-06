@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { guardApiRoute } from '@/lib/api-guard';
 
 const BPP_URL = process.env.NEXT_PUBLIC_BPP_URL || 'http://bpp:3005';
 
 export async function GET(request: NextRequest) {
+  const blocked = guardApiRoute(request);
+  if (blocked) return blocked;
+
   try {
     const { searchParams } = new URL(request.url);
     const providerId = searchParams.get('provider_id');
@@ -18,6 +22,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
+  const blocked = guardApiRoute(request);
+  if (blocked) return blocked;
+
   try {
     const body = await request.json();
     const { itemId, ...rest } = body;
@@ -37,6 +44,9 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const blocked = guardApiRoute(request);
+  if (blocked) return blocked;
+
   try {
     const body = await request.json();
     const res = await fetch(`${BPP_URL}/api/inventory`, {

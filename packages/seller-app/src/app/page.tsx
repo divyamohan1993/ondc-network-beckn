@@ -2,8 +2,7 @@ import { cookies } from 'next/headers';
 import Link from 'next/link';
 import DashboardCard from '@/components/DashboardCard';
 import StockAlert from '@/components/StockAlert';
-import en from '@/i18n/en.json';
-import hi from '@/i18n/hi.json';
+import { getMessages } from '@/lib/i18n';
 import { formatINR, formatRelativeTime, truncate, orderStatusLabel } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +32,7 @@ async function fetchLowStock() {
 export default async function DashboardPage() {
   const cookieStore = await cookies();
   const locale = cookieStore.get('locale')?.value || 'en';
-  const t = locale === 'hi' ? hi : en;
+  const t = getMessages(locale);
 
   const [ordersData, lowStockData] = await Promise.all([fetchOrders(), fetchLowStock()]);
   const orders = ordersData.orders || [];

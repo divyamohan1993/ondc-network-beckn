@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
-import en from '@/i18n/en.json';
-import hi from '@/i18n/hi.json';
+import { getMessages } from '@/lib/i18n';
 import IssueCard from '@/components/IssueCard';
 
 export const dynamic = 'force-dynamic';
@@ -8,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export default async function IssuesPage() {
   const cookieStore = await cookies();
   const locale = cookieStore.get('locale')?.value || 'en';
-  const t = locale === 'hi' ? hi : en;
+  const t = getMessages(locale);
 
   // IGM issues will come from BPP API when implemented
   const issues: Array<{

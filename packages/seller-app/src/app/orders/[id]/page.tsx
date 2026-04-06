@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers';
 import Link from 'next/link';
-import en from '@/i18n/en.json';
-import hi from '@/i18n/hi.json';
+import { getMessages } from '@/lib/i18n';
 import OrderTimeline from '@/components/OrderTimeline';
 import { formatRelativeTime } from '@/lib/format';
 
@@ -25,7 +24,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const cookieStore = await cookies();
   const locale = cookieStore.get('locale')?.value || 'en';
-  const t = locale === 'hi' ? hi : en;
+  const t = getMessages(locale);
   const order = await fetchOrder(id);
 
   if (!order) {

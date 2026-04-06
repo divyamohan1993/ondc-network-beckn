@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { guardApiRoute } from "@/lib/api-guard";
 
 // Cart is managed client-side via localStorage.
 // This route exists for server-side cart validation if needed.
 
 export async function POST(request: NextRequest) {
+  const blocked = guardApiRoute(request);
+  if (blocked) return blocked;
+
   try {
     const body = await request.json();
     const items = body.items || [];

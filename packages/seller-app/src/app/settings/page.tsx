@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import en from '@/i18n/en.json';
-import hi from '@/i18n/hi.json';
+import { getMessages } from '@/lib/i18n';
 import ActionButton from '@/components/ActionButton';
 
 function getLocale(): string {
@@ -19,7 +18,7 @@ export default function SettingsPage() {
     setLocale(getLocale());
   }, []);
 
-  const t = locale === 'hi' ? hi : en;
+  const t = getMessages(locale);
 
   const [form, setForm] = useState({
     businessName: '',

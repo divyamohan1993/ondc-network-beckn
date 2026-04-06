@@ -6,6 +6,7 @@ import {
   nack,
   transactions,
   createLogger,
+  AddressService,
 } from "@ondc/shared";
 import type { BecknRequest } from "@ondc/shared";
 import { eq, desc } from "drizzle-orm";
@@ -351,6 +352,45 @@ export const registerClientApi: FastifyPluginAsync = async (
       return reply.code(400).send(
         nack("CONTEXT-ERROR", "10000", "transaction_id, bpp_id, and bpp_uri are required."),
       );
+    }
+
+    // Validate delivery address pincode before sending to BPP
+    const deliveryPincode =
+      fulfillment?.end?.location?.address?.area_code ??
+      billing?.address?.area_code;
+
+    if (deliveryPincode) {
+      try {
+        const addressService = new AddressService(fastify.db);
+        const validation = await addressService.validateAddress({
+          pincode: deliveryPincode,
+          city: fulfillment?.end?.location?.address?.city ?? billing?.address?.city,
+          state: fulfillment?.end?.location?.address?.state ?? billing?.address?.state,
+        });
+
+        if (!validation.valid) {
+          return reply.code(400).send(
+            nack(
+              "ADDRESS-ERROR",
+              "30009",
+              `Address validation failed: ${validation.errors.join("; ")}`,
+            ),
+          );
+        }
+
+        if (!validation.deliveryAvailable) {
+          return reply.code(400).send(
+            nack(
+              "DELIVERY-ERROR",
+              "30010",
+              `Delivery not available to pincode ${deliveryPincode}`,
+            ),
+          );
+        }
+      } catch (err) {
+        // Log but don't block if pincode DB is empty or unavailable
+        logger.warn({ err, pincode: deliveryPincode }, "Address validation skipped due to error");
+      }
     }
 
     const context = buildContext({
@@ -962,6 +1002,43 @@ export const registerClientApi: FastifyPluginAsync = async (
       }
     },
   );
+
+  // -------------------------------------------------------------------------
+  // POST /api/validate-address -- validate Indian delivery address
+  // -------------------------------------------------------------------------
+  fastify.post<{
+    Body: {
+      pincode: string;
+      city?: string;
+      state?: string;
+      address?: string;
+    };
+  }>("/validate-address", async (request, reply) => {
+    const { pincode, city, state, address } = request.body;
+
+    if (!pincode) {
+      return reply.code(400).send({
+        error: { code: "BAD_REQUEST", message: "pincode is required.", details: [] },
+      });
+    }
+
+    try {
+      const addressService = new AddressService(fastify.db);
+      const result = await addressService.validateAddress({
+        pincode,
+        city,
+        state,
+        addressLine: address,
+      });
+
+      return reply.code(200).send(result);
+    } catch (err) {
+      logger.error({ err }, "Error validating address");
+      return reply.code(500).send({
+        error: { code: "INTERNAL_ERROR", message: "Internal error validating address.", details: [] },
+      });
+    }
+  });
 
   // -------------------------------------------------------------------------
   // POST /api/webhooks

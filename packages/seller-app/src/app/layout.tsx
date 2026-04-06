@@ -2,8 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import Sidebar from '@/components/Sidebar';
 import LanguageToggle from '@/components/LanguageToggle';
-import en from '@/i18n/en.json';
-import hi from '@/i18n/hi.json';
+import { getMessages } from '@/lib/i18n';
 import { cookies } from 'next/headers';
 
 export const metadata: Metadata = {
@@ -22,7 +21,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const locale = await getLocale();
-  const t = locale === 'hi' ? hi : en;
+  const t = getMessages(locale);
 
   return (
     <html lang={locale} dir="ltr" className="dark">

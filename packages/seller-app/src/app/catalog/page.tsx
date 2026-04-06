@@ -1,7 +1,6 @@
 import { cookies } from 'next/headers';
 import Link from 'next/link';
-import en from '@/i18n/en.json';
-import hi from '@/i18n/hi.json';
+import { getMessages } from '@/lib/i18n';
 import { formatINR } from '@/lib/format';
 import CatalogSearch from './catalog-search';
 
@@ -22,7 +21,7 @@ async function fetchCatalog() {
 export default async function CatalogPage() {
   const cookieStore = await cookies();
   const locale = cookieStore.get('locale')?.value || 'en';
-  const t = locale === 'hi' ? hi : en;
+  const t = getMessages(locale);
   const catalog = await fetchCatalog();
   const items = catalog?.items || [];
 

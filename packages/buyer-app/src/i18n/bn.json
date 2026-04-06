@@ -1,0 +1,155 @@
+{
+  "app": {
+    "name": "ONDC বাজার",
+    "tagline": "ভারতের উন্মুক্ত ডিজিটাল মার্কেটপ্লেস"
+  },
+  "nav": {
+    "home": "হোম",
+    "orders": "আমার অর্ডার",
+    "cart": "ঝুড়ি",
+    "support": "সাহায্য",
+    "login": "লগইন",
+    "skip_to_content": "মূল বিষয়বস্তুতে যান"
+  },
+  "search": {
+    "placeholder": "পণ্য খুঁজুন...",
+    "button": "খুঁজুন",
+    "results_for": "\"{query}\" এর জন্য ফলাফল",
+    "no_results": "\"{query}\" এর জন্য কোনো পণ্য পাওয়া যায়নি",
+    "try_different": "অন্য একটি শব্দ দিয়ে খোঁজার চেষ্টা করুন অথবা নিচের বিভাগ দেখুন।",
+    "searching": "খোঁজা হচ্ছে..."
+  },
+  "categories": {
+    "title": "বিভাগ অনুযায়ী কিনুন",
+    "grocery": "মুদি",
+    "fashion": "ফ্যাশন",
+    "electronics": "ইলেকট্রনিক্স",
+    "health": "স্বাস্থ্য",
+    "home_kitchen": "ঘর ও রান্নাঘর",
+    "beauty": "সৌন্দর্য"
+  },
+  "product": {
+    "add_to_cart": "ঝুড়িতে রাখুন",
+    "buy_now": "এখনই কিনুন",
+    "in_stock": "স্টকে আছে",
+    "out_of_stock": "স্টকে নেই",
+    "seller": "বিক্রেতা",
+    "delivery_info": "ডেলিভারি তথ্য",
+    "description": "বিবরণ",
+    "quantity": "পরিমাণ",
+    "price": "দাম",
+    "added_to_cart": "ঝুড়িতে যোগ করা হয়েছে",
+    "select_quantity": "পরিমাণ নির্বাচন করুন"
+  },
+  "cart": {
+    "title": "আপনার ঝুড়ি",
+    "empty": "আপনার ঝুড়ি খালি",
+    "empty_message": "কেনাকাটা শুরু করতে পণ্য যোগ করুন।",
+    "start_shopping": "কেনাকাটা শুরু করুন",
+    "checkout": "চেকআউটে যান",
+    "remove": "সরান",
+    "subtotal": "উপমোট",
+    "delivery_fee": "ডেলিভারি চার্জ",
+    "taxes": "কর ও চার্জ",
+    "total": "মোট",
+    "items_count": "{count, plural, =0 {কোনো পণ্য নেই} =1 {১টি পণ্য} other {#টি পণ্য}}",
+    "increase": "পরিমাণ বাড়ান",
+    "decrease": "পরিমাণ কমান"
+  },
+  "checkout": {
+    "title": "চেকআউট",
+    "address": "ডেলিভারি ঠিকানা",
+    "payment": "পেমেন্ট পদ্ধতি",
+    "place_order": "অর্ডার দিন",
+    "name": "পুরো নাম",
+    "phone": "ফোন নম্বর",
+    "email": "ইমেল",
+    "door": "বাড়ি/ফ্ল্যাট নম্বর",
+    "street": "রাস্তা/গলি",
+    "locality": "এলাকা/পাড়া",
+    "city": "শহর",
+    "state": "রাজ্য",
+    "pincode": "পিন কোড",
+    "name_required": "নাম আবশ্যক",
+    "phone_required": "ফোন নম্বর আবশ্যক",
+    "pincode_required": "পিন কোড আবশ্যক",
+    "city_required": "শহর আবশ্যক",
+    "order_summary": "অর্ডার সারসংক্ষেপ"
+  },
+  "payment": {
+    "title": "পেমেন্ট",
+    "upi": "UPI",
+    "card": "ক্রেডিট/ডেবিট কার্ড",
+    "cod": "ক্যাশ অন ডেলিভারি",
+    "pay_now": "এখনই পেমেন্ট করুন",
+    "timer_expires": "পেমেন্টের সময়সীমা {minutes}:{seconds} এ শেষ হবে",
+    "processing": "পেমেন্ট প্রক্রিয়াধীন...",
+    "success": "পেমেন্ট সফল!",
+    "failed": "পেমেন্ট ব্যর্থ। আবার চেষ্টা করুন।",
+    "upi_instruction": "পেমেন্ট করতে QR কোড স্ক্যান করুন অথবা UPI ID ব্যবহার করুন",
+    "cod_instruction": "অর্ডার ডেলিভারি হলে পেমেন্ট করুন"
+  },
+  "orders": {
+    "title": "আমার অর্ডার",
+    "track": "অর্ডার ট্র্যাক করুন",
+    "cancel": "অর্ডার বাতিল করুন",
+    "empty": "এখনো কোনো অর্ডার নেই",
+    "empty_message": "আপনি অর্ডার দিলে সেগুলো এখানে দেখা যাবে।",
+    "order_id": "অর্ডার ID",
+    "placed_on": "অর্ডারের তারিখ",
+    "status": "অবস্থা",
+    "details": "বিস্তারিত দেখুন",
+    "confirmed": "নিশ্চিত হয়েছে",
+    "packed": "প্যাক করা হয়েছে",
+    "shipped": "পাঠানো হয়েছে",
+    "out_for_delivery": "ডেলিভারিতে বেরিয়েছে",
+    "delivered": "ডেলিভারি হয়েছে",
+    "cancelled": "বাতিল করা হয়েছে",
+    "tracking_url": "শিপমেন্ট ট্র্যাক করুন"
+  },
+  "support": {
+    "title": "সাহায্য ও সহায়তা",
+    "raise_issue": "অভিযোগ দায়ের করুন",
+    "order_id_label": "অর্ডার ID / লেনদেন ID",
+    "issue_type": "সমস্যার ধরন",
+    "description": "আপনার সমস্যা বর্ণনা করুন",
+    "submit": "জমা দিন",
+    "phone": "আপনার ফোন নম্বর",
+    "email": "আপনার ইমেল",
+    "submitted": "অভিযোগ দায়ের করা হয়েছে। আমরা শীঘ্রই যোগাযোগ করব।",
+    "issue_types": {
+      "item_not_received": "পণ্য পাওয়া যায়নি",
+      "wrong_item": "ভুল পণ্য এসেছে",
+      "damaged_item": "ক্ষতিগ্রস্ত পণ্য",
+      "quality_issue": "মানের সমস্যা",
+      "refund": "ফেরত অনুরোধ",
+      "other": "অন্যান্য"
+    }
+  },
+  "common": {
+    "loading": "লোড হচ্ছে...",
+    "error": "কিছু সমস্যা হয়েছে",
+    "retry": "আবার চেষ্টা করুন",
+    "back": "ফিরে যান",
+    "close": "বন্ধ করুন",
+    "save": "সংরক্ষণ করুন",
+    "cancel": "বাতিল করুন",
+    "rupee_symbol": "₹",
+    "free": "বিনামূল্যে"
+  },
+  "footer": {
+    "about": "ONDC সম্পর্কে",
+    "privacy": "গোপনীয়তা নীতি",
+    "terms": "ব্যবহারের শর্তাবলী",
+    "grievance": "অভিযোগ নিষ্পত্তি",
+    "copyright": "ওপেন নেটওয়ার্ক ফর ডিজিটাল কমার্স দ্বারা পরিচালিত"
+  },
+  "a11y": {
+    "language_toggle": "ভাষা পরিবর্তন করুন",
+    "cart_count": "ঝুড়িতে {count}টি পণ্য আছে",
+    "product_image": "{name} এর ছবি",
+    "price_of": "{name} এর দাম {price}",
+    "loading_products": "পণ্য লোড হচ্ছে, অপেক্ষা করুন",
+    "search_results_loaded": "{count}টি অনুসন্ধান ফলাফল পাওয়া গেছে"
+  }
+}

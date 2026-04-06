@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers';
-import en from '@/i18n/en.json';
-import hi from '@/i18n/hi.json';
+import { getMessages } from '@/lib/i18n';
 import DashboardCard from '@/components/DashboardCard';
 import { formatINR } from '@/lib/format';
 
@@ -9,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function AnalyticsPage() {
   const cookieStore = await cookies();
   const locale = cookieStore.get('locale')?.value || 'en';
-  const t = locale === 'hi' ? hi : en;
+  const t = getMessages(locale);
 
   return (
     <div className="space-y-6">

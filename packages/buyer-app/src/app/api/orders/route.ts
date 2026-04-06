@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrderByTxnId, getOrderStatus } from "@/lib/bap-client";
+import { guardApiRoute } from "@/lib/api-guard";
 
 export async function GET(request: NextRequest) {
+  const blocked = guardApiRoute(request);
+  if (blocked) return blocked;
+
   try {
     const txnId = request.nextUrl.searchParams.get("txn");
 

@@ -2,8 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import ProductForm from '@/components/ProductForm';
-import en from '@/i18n/en.json';
-import hi from '@/i18n/hi.json';
+import { getMessages } from '@/lib/i18n';
 import { useEffect, useState } from 'react';
 
 function getLocale(): string {
@@ -20,7 +19,7 @@ export default function NewProductPage() {
     setLocale(getLocale());
   }, []);
 
-  const t = locale === 'hi' ? hi : en;
+  const t = getMessages(locale);
 
   async function handleImageUpload(files: File[]): Promise<string[]> {
     const urls: string[] = [];

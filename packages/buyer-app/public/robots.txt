@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /cart
+Disallow: /checkout
+Disallow: /payment
+
+Sitemap: https://shop.ondc.example.com/sitemap.xml

@@ -3,8 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import en from '@/i18n/en.json';
-import hi from '@/i18n/hi.json';
+import { getMessages } from '@/lib/i18n';
 import ActionButton from '@/components/ActionButton';
 
 function getLocale(): string {
@@ -24,7 +23,7 @@ export default function IssueDetailPage() {
     setLocale(getLocale());
   }, []);
 
-  const t = locale === 'hi' ? hi : en;
+  const t = getMessages(locale);
 
   async function handleSubmit() {
     if (!response.trim()) return;

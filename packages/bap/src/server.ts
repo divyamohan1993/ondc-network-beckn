@@ -24,6 +24,7 @@ import { registerClientApi } from "./api/client-api.js";
 import { registerIgmRoutes } from "./routes/igm/index.js";
 import { registerRspRoutes } from "./routes/rsp/index.js";
 import { registerPaymentRoutes } from "./routes/payment.js";
+import { registerAuthRoutes } from "./routes/auth.js";
 import { ActionQueueService } from "./services/action-queue.js";
 
 const logger = createLogger("bap");
@@ -261,6 +262,7 @@ async function main(): Promise<void> {
   await fastify.register(registerIgmRoutes, { prefix: "/" });
   await fastify.register(registerRspRoutes, { prefix: "/" });
   await fastify.register(registerPaymentRoutes, { prefix: "/" });
+  await fastify.register(registerAuthRoutes, { prefix: "/" });
 
   // --- Observability endpoints ---
   fastify.get("/metrics", async (_request, reply) => {

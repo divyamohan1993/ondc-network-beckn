@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { initOrder, confirmOrder } from "@/lib/bap-client";
+import { guardApiRoute } from "@/lib/api-guard";
 
 export async function POST(request: NextRequest) {
+  const blocked = guardApiRoute(request);
+  if (blocked) return blocked;
+
   try {
     const body = await request.json();
     const action = body.action || "init";

@@ -903,3 +903,88 @@ CREATE TABLE IF NOT EXISTS device_tokens (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens(user_id);
+
+-- ============================================
+-- Product Variants (Size/Color/Weight)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS product_variants (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id TEXT NOT NULL,
+  parent_item_id TEXT NOT NULL,
+  variant_item_id TEXT NOT NULL UNIQUE,
+  variant_group TEXT NOT NULL, -- e.g., "size", "color", "weight"
+  variant_value TEXT NOT NULL, -- e.g., "XL", "Red", "500g"
+  price DECIMAL(12,2),
+  mrp DECIMAL(12,2),
+  sku TEXT,
+  stock_quantity INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_pv_parent ON product_variants(parent_item_id);
+CREATE INDEX IF NOT EXISTS idx_pv_provider ON product_variants(provider_id);
+
+-- ============================================
+-- India Pincodes (Address Validation)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS india_pincodes (
+  pincode TEXT PRIMARY KEY,
+  city TEXT NOT NULL,
+  state TEXT NOT NULL,
+  district TEXT,
+  region TEXT,
+  latitude DECIMAL(10,7),
+  longitude DECIMAL(10,7),
+  delivery_available BOOLEAN DEFAULT TRUE
+);
+
+CREATE INDEX IF NOT EXISTS idx_pincodes_city ON india_pincodes(city);
+CREATE INDEX IF NOT EXISTS idx_pincodes_state ON india_pincodes(state);
+
+-- ============================================
+-- User Accounts (Phone-based OTP Auth)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  phone TEXT NOT NULL UNIQUE,
+  name TEXT,
+  email TEXT,
+  preferred_language TEXT DEFAULT 'en',
+  default_address JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
+
+-- OTP verification
+CREATE TABLE IF NOT EXISTS otp_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  phone TEXT NOT NULL,
+  otp_hash TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  verified BOOLEAN DEFAULT FALSE,
+  attempts INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_otp_phone ON otp_requests(phone);
+CREATE INDEX IF NOT EXISTS idx_otp_expires ON otp_requests(expires_at);
+
+-- User sessions
+CREATE TABLE IF NOT EXISTS user_sessions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id),
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  device_info TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_token ON user_sessions(token_hash);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id);

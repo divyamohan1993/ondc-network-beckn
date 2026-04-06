@@ -25,3 +25,6 @@ export {
 export type { NotificationPayload } from "./notification-service.js";
 export { PushNotificationService } from "./push-notification-service.js";
 export type { PushNotification } from "./push-notification-service.js";
+export { AddressService } from "./address-service.js";
+export type { AddressValidation } from "./address-service.js";
+export { AuthService } from "./auth-service.js";
