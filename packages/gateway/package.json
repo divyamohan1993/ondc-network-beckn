@@ -11,14 +11,14 @@
   },
   "dependencies": {
     "@ondc/shared": "workspace:*",
-    "fastify": "^5.7.4",
+    "fastify": "^5.8.3",
     "@fastify/cors": "^11.2.0",
     "amqplib": "^0.10.9",
     "drizzle-orm": "^0.45.1",
     "pg": "^8.18.0",
     "ioredis": "^5.9.3",
     "dotenv": "^16.6.1",
-    "undici": "^7.22.0"
+    "undici": "^7.24.0"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.8",
