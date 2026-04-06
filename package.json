@@ -12,7 +12,8 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "db:migrate": "pnpm --filter shared db:migrate",
-    "export:pramaan": "tsx scripts/src/export-pramaan-logs.ts"
+    "export:pramaan": "tsx scripts/src/export-pramaan-logs.ts",
+    "seed:pincodes": "tsx scripts/src/seed-pincodes.ts"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.18",
