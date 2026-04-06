@@ -15,7 +15,7 @@ export default function ParticipantActions({ id, currentStatus }: ParticipantAct
   async function updateStatus(newStatus: string) {
     setLoading(true);
     try {
-      const res = await fetch(`/api/participants/${id}/status`, {
+      const res = await fetch(`/admin/api/participants/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),

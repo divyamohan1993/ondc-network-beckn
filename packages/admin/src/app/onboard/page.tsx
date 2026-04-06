@@ -650,7 +650,7 @@ export default function OnboardPage() {
   const credentialRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch('/api/onboard')
+    fetch('/admin/api/onboard')
       .then((r) => r.json())
       .then((data) => {
         setCityOptions(data.cities || []);
@@ -693,12 +693,12 @@ export default function OnboardPage() {
     try {
       if (form.participant_type === 'both') {
         const [bapRes, bppRes] = await Promise.all([
-          fetch('/api/onboard', {
+          fetch('/admin/api/onboard', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...form, participant_type: 'buyer' }),
           }),
-          fetch('/api/onboard', {
+          fetch('/admin/api/onboard', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ ...form, participant_type: 'seller' }),
@@ -716,7 +716,7 @@ export default function OnboardPage() {
         setBapCredentials(bapData.credentials);
         setBppCredentials(bppData.credentials);
       } else {
-        const res = await fetch('/api/onboard', {
+        const res = await fetch('/admin/api/onboard', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(form),

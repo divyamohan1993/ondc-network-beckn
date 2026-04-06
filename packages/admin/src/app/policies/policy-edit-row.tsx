@@ -32,7 +32,7 @@ export default function PolicyEditRow({ policy }: PolicyEditRowProps) {
     }
 
     try {
-      const res = await fetch(`/api/policies/${policy.id}`, {
+      const res = await fetch(`/admin/api/policies/${policy.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: parsedValue, description }),

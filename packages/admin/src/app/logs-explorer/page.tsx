@@ -121,7 +121,7 @@ export default function LogsExplorerPage() {
       if (appliedFilters.to) params.set('to', new Date(appliedFilters.to).toISOString());
       params.set('limit', '200');
 
-      const res = await fetch(`/api/logs?${params.toString()}`);
+      const res = await fetch(`/admin/api/logs?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {

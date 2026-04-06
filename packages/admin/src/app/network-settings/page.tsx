@@ -54,7 +54,7 @@ export default function NetworkSettingsPage() {
 
   const fetchSettings = useCallback(async () => {
     try {
-      const res = await fetch('/api/network-settings');
+      const res = await fetch('/admin/api/network-settings');
       if (!res.ok) throw new Error('Failed to fetch network settings');
       const data = await res.json();
       const s = { ...defaultSettings, ...data };
@@ -83,7 +83,7 @@ export default function NetworkSettingsPage() {
     setSuccess(null);
 
     try {
-      const res = await fetch('/api/network-settings', {
+      const res = await fetch('/admin/api/network-settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

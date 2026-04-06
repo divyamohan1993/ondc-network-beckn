@@ -20,7 +20,7 @@ export default function DomainForm() {
     };
 
     try {
-      const res = await fetch('/api/domains', {
+      const res = await fetch('/admin/api/domains', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

@@ -127,7 +127,7 @@ export default function TeardownPage() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/orchestrator/teardown');
+      const res = await fetch('/admin/api/orchestrator/teardown');
       if (res.ok) {
         const data = await res.json();
         if (data.activeOperation) {
@@ -155,7 +155,7 @@ export default function TeardownPage() {
   async function initiateTeardown(type: TeardownType) {
     setInitiating(true);
     try {
-      const res = await fetch('/api/orchestrator/teardown', {
+      const res = await fetch('/admin/api/orchestrator/teardown', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type }),
@@ -181,7 +181,7 @@ export default function TeardownPage() {
     if (!window.confirm('Are you sure you want to cancel the teardown operation?')) return;
 
     try {
-      const res = await fetch(`/api/orchestrator/teardown/${activeOperation.id}/cancel`, {
+      const res = await fetch(`/admin/api/orchestrator/teardown/${activeOperation.id}/cancel`, {
         method: 'POST',
       });
       if (res.ok) {

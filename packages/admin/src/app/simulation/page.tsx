@@ -48,7 +48,7 @@ export default function SimulationPage() {
 
   async function fetchRuns() {
     try {
-      const res = await fetch('/api/simulation/runs');
+      const res = await fetch('/admin/api/simulation/runs');
       if (res.ok) {
         const data = await res.json();
         setRuns(data);
@@ -67,7 +67,7 @@ export default function SimulationPage() {
   async function startSimulation() {
     setLoading(true);
     try {
-      const res = await fetch('/api/simulation/start', {
+      const res = await fetch('/admin/api/simulation/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -92,7 +92,7 @@ export default function SimulationPage() {
 
     setResetLoading(true);
     try {
-      await fetch('/api/simulation/reset', { method: 'POST' });
+      await fetch('/admin/api/simulation/reset', { method: 'POST' });
       await fetchRuns();
     } finally {
       setResetLoading(false);

@@ -43,7 +43,7 @@ export default function EditPanel({ id, initial }: EditPanelProps) {
     setSaving(true);
     setFeedback(null);
     try {
-      const res = await fetch(`/api/participants/${id}`, {
+      const res = await fetch(`/admin/api/participants/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),

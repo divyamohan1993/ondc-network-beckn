@@ -10,7 +10,7 @@ export default function DomainToggle({ id, isActive }: { id: string; isActive: b
   async function toggle() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/domains/${id}`, {
+      const res = await fetch(`/admin/api/domains/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: !isActive }),

@@ -88,7 +88,7 @@ export default function AlertsPage() {
 
   const fetchAlerts = useCallback(async () => {
     try {
-      const res = await fetch('/api/health-monitor/alerts');
+      const res = await fetch('/admin/api/health-monitor/alerts');
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -127,7 +127,7 @@ export default function AlertsPage() {
   async function acknowledgeAlert(alertId: string) {
     setAcknowledging(alertId);
     try {
-      const res = await fetch('/api/health-monitor/alerts', {
+      const res = await fetch('/admin/api/health-monitor/alerts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: alertId, action: 'acknowledge' }),
@@ -146,7 +146,7 @@ export default function AlertsPage() {
 
   async function resolveAlert(alertId: string) {
     try {
-      const res = await fetch('/api/health-monitor/alerts', {
+      const res = await fetch('/admin/api/health-monitor/alerts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: alertId, action: 'resolve' }),

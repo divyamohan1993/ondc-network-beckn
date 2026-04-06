@@ -81,8 +81,8 @@ export default function VaultManagementPage() {
   const fetchSecrets = useCallback(async () => {
     try {
       const [secretsRes, rotationRes] = await Promise.all([
-        fetch('/api/vault/secrets'),
-        fetch('/api/vault/rotation'),
+        fetch('/admin/api/vault/secrets'),
+        fetch('/admin/api/vault/rotation'),
       ]);
 
       if (secretsRes.ok) {
@@ -150,7 +150,7 @@ export default function VaultManagementPage() {
         body.value = formValue;
       }
 
-      const res = await fetch('/api/vault/secrets', {
+      const res = await fetch('/admin/api/vault/secrets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -173,7 +173,7 @@ export default function VaultManagementPage() {
   async function handleRotateSecret(name: string) {
     setRotatingSecret(name);
     try {
-      const res = await fetch(`/api/vault/secrets/${encodeURIComponent(name)}/rotate`, {
+      const res = await fetch(`/admin/api/vault/secrets/${encodeURIComponent(name)}/rotate`, {
         method: 'POST',
       });
       if (!res.ok) {
@@ -194,7 +194,7 @@ export default function VaultManagementPage() {
     }
 
     try {
-      const res = await fetch(`/api/vault/secrets/${encodeURIComponent(name)}/revoke`, {
+      const res = await fetch(`/admin/api/vault/secrets/${encodeURIComponent(name)}/revoke`, {
         method: 'POST',
       });
       if (!res.ok) {
@@ -214,7 +214,7 @@ export default function VaultManagementPage() {
 
     setRotatingAll(true);
     try {
-      const res = await fetch('/api/vault/secrets/rotate-all', {
+      const res = await fetch('/admin/api/vault/secrets/rotate-all', {
         method: 'POST',
       });
       if (!res.ok) {

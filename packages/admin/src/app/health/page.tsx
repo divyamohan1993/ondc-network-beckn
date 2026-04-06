@@ -12,11 +12,11 @@ interface ServiceHealth {
 }
 
 const SERVICES: { name: string; url: string }[] = [
-  { name: 'Registry', url: process.env.NEXT_PUBLIC_REGISTRY_URL || 'http://localhost:3000' },
-  { name: 'Gateway', url: process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3001' },
-  { name: 'BAP', url: process.env.NEXT_PUBLIC_BAP_URL || 'http://localhost:3002' },
+  { name: 'Registry', url: process.env.NEXT_PUBLIC_REGISTRY_URL || 'http://localhost:3001' },
+  { name: 'Gateway', url: process.env.NEXT_PUBLIC_GATEWAY_URL || 'http://localhost:3002' },
+  { name: 'BAP', url: process.env.NEXT_PUBLIC_BAP_URL || 'http://localhost:3003' },
   { name: 'BPP', url: process.env.NEXT_PUBLIC_BPP_URL || 'http://localhost:3004' },
-  { name: 'Mock Server', url: process.env.NEXT_PUBLIC_MOCK_URL || 'http://localhost:3005' },
+  { name: 'Vault', url: process.env.NEXT_PUBLIC_VAULT_URL || 'http://localhost:3006' },
 ];
 
 export default function HealthPage() {
@@ -30,7 +30,7 @@ export default function HealthPage() {
       SERVICES.map(async (service) => {
         const start = Date.now();
         try {
-          const res = await fetch(`/api/health/check?url=${encodeURIComponent(service.url)}`, {
+          const res = await fetch(`/admin/api/health/check?url=${encodeURIComponent(service.url)}`, {
             signal: AbortSignal.timeout(5000),
           });
           const data = await res.json();

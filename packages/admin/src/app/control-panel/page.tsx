@@ -107,8 +107,8 @@ export default function ControlPanelPage() {
   const fetchServices = useCallback(async () => {
     try {
       const [servicesRes, healthRes] = await Promise.all([
-        fetch('/api/orchestrator/services'),
-        fetch('/api/health-monitor/status'),
+        fetch('/admin/api/orchestrator/services'),
+        fetch('/admin/api/health-monitor/status'),
       ]);
 
       if (servicesRes.ok) {
@@ -181,7 +181,7 @@ export default function ControlPanelPage() {
     if (!isSuperAdmin) return;
     setActionInProgress(`${serviceName}-${action}`);
     try {
-      const res = await fetch(`/api/orchestrator/services/${serviceName}/${action}`, {
+      const res = await fetch(`/admin/api/orchestrator/services/${serviceName}/${action}`, {
         method: 'POST',
       });
       if (!res.ok) {
@@ -207,7 +207,7 @@ export default function ControlPanelPage() {
 
     setBulkActionInProgress(action);
     try {
-      const res = await fetch(`/api/orchestrator/services/bulk/${action}`, {
+      const res = await fetch(`/admin/api/orchestrator/services/bulk/${action}`, {
         method: 'POST',
       });
       if (!res.ok) {
@@ -232,7 +232,7 @@ export default function ControlPanelPage() {
     if (!window.confirm(confirmMsg)) return;
 
     try {
-      const res = await fetch('/api/orchestrator/mode', {
+      const res = await fetch('/admin/api/orchestrator/mode', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: newMode }),

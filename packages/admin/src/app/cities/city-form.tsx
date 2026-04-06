@@ -20,7 +20,7 @@ export default function CityForm() {
     };
 
     try {
-      const res = await fetch('/api/cities', {
+      const res = await fetch('/admin/api/cities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

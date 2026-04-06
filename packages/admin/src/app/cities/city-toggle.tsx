@@ -10,7 +10,7 @@ export default function CityToggle({ id, isActive }: { id: string; isActive: boo
   async function toggle() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/cities/${id}`, {
+      const res = await fetch(`/admin/api/cities/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_active: !isActive }),

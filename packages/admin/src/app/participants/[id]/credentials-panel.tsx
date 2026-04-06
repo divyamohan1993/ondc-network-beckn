@@ -27,7 +27,7 @@ export default function CredentialsPanel({ id }: CredentialsPanelProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/participants/${id}/credentials`);
+      const res = await fetch(`/admin/api/participants/${id}/credentials`);
       if (!res.ok) throw new Error('Failed to fetch credentials');
       const data = await res.json();
       const creds = Array.isArray(data.credentials) ? data.credentials[0] ?? null : data.credentials;
@@ -47,7 +47,7 @@ export default function CredentialsPanel({ id }: CredentialsPanelProps) {
     setGenerating(true);
     setError(null);
     try {
-      const res = await fetch(`/api/participants/${id}/credentials`, { method: 'POST' });
+      const res = await fetch(`/admin/api/participants/${id}/credentials`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to generate credentials');
       const data = await res.json();
       const creds = Array.isArray(data.credentials) ? data.credentials[0] ?? null : data.credentials;

@@ -41,7 +41,7 @@ export default function AdminUsersPage() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin-users');
+      const res = await fetch('/admin/api/admin-users');
       if (!res.ok) throw new Error('Failed to fetch admin users');
       const data = await res.json();
       setUsers(Array.isArray(data) ? data : data.users ?? []);
@@ -63,7 +63,7 @@ export default function AdminUsersPage() {
     setFormError(null);
 
     try {
-      const res = await fetch('/api/admin-users', {
+      const res = await fetch('/admin/api/admin-users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -95,7 +95,7 @@ export default function AdminUsersPage() {
   async function handleToggleActive(user: AdminUser) {
     setActionInProgress(`toggle-${user.id}`);
     try {
-      const res = await fetch(`/api/admin-users/${user.id}`, {
+      const res = await fetch(`/admin/api/admin-users/${user.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ isActive: !user.isActive }),
@@ -117,7 +117,7 @@ export default function AdminUsersPage() {
     if (newRole === user.role) return;
     setActionInProgress(`role-${user.id}`);
     try {
-      const res = await fetch(`/api/admin-users/${user.id}`, {
+      const res = await fetch(`/admin/api/admin-users/${user.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole }),
@@ -139,7 +139,7 @@ export default function AdminUsersPage() {
     if (!window.confirm(`Deactivate ${user.name}? This will revoke their access.`)) return;
     setActionInProgress(`deactivate-${user.id}`);
     try {
-      const res = await fetch(`/api/admin-users/${user.id}`, {
+      const res = await fetch(`/admin/api/admin-users/${user.id}`, {
         method: 'DELETE',
       });
       if (!res.ok) {
