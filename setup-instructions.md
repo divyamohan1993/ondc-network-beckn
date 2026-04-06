@@ -7,16 +7,26 @@ A complete, production-grade private Beckn network that is protocol-identical to
 ## Quick Start
 
 ```bash
-# Clone and deploy (blank Ubuntu VM)
+# Clone and deploy (blank Ubuntu 22.04+ VM, e2-standard-4 or equivalent)
 git clone https://github.com/divyamohan1993/ondc-network-beckn.git
 cd ondc-network-beckn
-sudo bash autoconfig.sh
+
+# Install prerequisites
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs postgresql redis-server rabbitmq-server nginx
+sudo npm install -g pnpm@10.30.1 pm2
+
+# Configure, build, start
+./autoconfig.sh --domain your-domain.com
+pnpm install && pnpm turbo build
+pm2 start ecosystem.config.cjs
+pm2 save && pm2 startup
 
 # Populate with realistic test data
 sudo bash simulate.sh --baps 5 --bpps 20 --orders 500
 ```
 
-That's it. You now have a fully running Beckn network.
+That's it. You now have a fully running Beckn network managed by PM2.
 
 ---
 
@@ -43,53 +53,69 @@ That's it. You now have a fully running Beckn network.
 | Resource | Minimum | Recommended |
 |----------|---------|-------------|
 | OS | Ubuntu 22.04 / 24.04 | Ubuntu 24.04 LTS |
-| CPU | 2 cores | 4 cores |
-| RAM | 4 GB | 8 GB |
+| CPU | 2 cores | 4 cores (e2-standard-4 on GCloud) |
+| RAM | 4 GB | 16 GB |
 | Disk | 20 GB | 50 GB |
-| Ports | 80, 3000-3011, 5432, 5672, 6379 | Same |
+| Ports | 80, 3001-3007, 3012-3015, 5432, 5672, 6379 | Same |
 
-The `autoconfig.sh` script installs everything else: Docker, Node.js 22, pnpm.
+The production deployment at ondc.dmj.one runs natively with PM2 (no Docker). Install Node.js 22, PostgreSQL, Redis, RabbitMQ, nginx, pnpm, and PM2.
 
 ---
 
 ## Installation
 
-### Option A: Automated (Recommended)
+### Option A: PM2 / Native (Recommended, used in production)
 
 ```bash
-sudo bash autoconfig.sh
+# 1. Install system deps
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs postgresql redis-server rabbitmq-server nginx
+sudo npm install -g pnpm@10.30.1 pm2
+
+# 2. Clone and configure
+git clone https://github.com/divyamohan1993/ondc-network-beckn.git
+cd ondc-network-beckn
+./autoconfig.sh --domain your-domain.com
+
+# 3. Setup database
+sudo -u postgres createuser -s ondc_admin
+sudo -u postgres createdb ondc -O ondc_admin
+sudo -u postgres psql -d ondc -f db/init.sql
+
+# 4. Setup RabbitMQ
+sudo rabbitmqctl add_user ondc "$(grep RABBITMQ_PASSWORD .env | cut -d= -f2)"
+sudo rabbitmqctl set_permissions -p / ondc ".*" ".*" ".*"
+
+# 5. Build and start
+pnpm install && pnpm turbo build
+pm2 start ecosystem.config.cjs
+pm2 save && pm2 startup
+
+# 6. Seed pincode data
+pnpm seed:pincodes
 ```
 
-This runs 15 steps non-interactively:
-1. Checks system requirements
-2. Installs Docker, Node.js 20, pnpm
-3. Generates `.env` from `.env.example`
-4. Generates Ed25519 key pairs for all services
-5. Generates random passwords for PostgreSQL, Redis, RabbitMQ
-6. Generates admin credentials
-7. Writes everything to `.env`
-8. Configures Nginx subdomain routing
-9. Builds all Docker images
-10. Starts all containers
-11. Waits for database to be ready
-12. Runs database migrations (via `init.sql`)
-13. Seeds database (admin user, domains, cities)
-14. Health-checks all services
-15. Prints summary with URLs and credentials
+The `autoconfig.sh` script generates Ed25519 key pairs, random passwords for all infrastructure, vault master key, admin credentials, and writes everything to `.env`.
 
-### Option B: Manual
+### Option B: Docker Compose
+
+```bash
+./autoconfig.sh --domain your-domain.com
+docker compose up -d
+```
+
+### Option C: Manual (without autoconfig)
 
 ```bash
 # 1. Copy env file and fill in values
 cp .env.example .env
 # Edit .env with your values (see Configuration Reference below)
 
-# 2. Build and start
-docker compose build
-docker compose up -d
+# 2. Build and start with PM2
+pnpm install && pnpm turbo build
+pm2 start ecosystem.config.cjs
 
 # 3. Seed the database
-pnpm install
 pnpm --filter @ondc/scripts seed
 ```
 
@@ -100,24 +126,31 @@ pnpm --filter @ondc/scripts seed
 ### Ephemeral (Development / Testing / Demos)
 
 ```bash
-sudo bash autoconfig.sh
+./autoconfig.sh --domain your-domain.com
+pnpm install && pnpm turbo build
+pm2 start ecosystem.config.cjs
 ```
 
-- No persistent volumes — destroy the VM when done, nothing to clean up
+- Native services (PostgreSQL, Redis, RabbitMQ installed via apt)
+- PM2 manages 10 Node.js processes
+- Destroy the VM when done, nothing to clean up
 - Mock server enabled for simulation
 - Perfect for: testing apps, hackathons, load testing, CI/CD
 
 ### Production
 
 ```bash
-sudo bash autoconfig.sh --production --domain ondc.dmj.one
+./autoconfig.sh --production --domain ondc.dmj.one
+pnpm install && pnpm turbo build
+pm2 start ecosystem.config.cjs
+pm2 save && pm2 startup
 ```
 
-- PostgreSQL data persisted to Docker volume
+- Native PostgreSQL, Redis, RabbitMQ with systemd (auto-start on reboot)
+- PM2 with startup hook (auto-start Node.js services on reboot)
 - Daily automated backups at 2 AM to `/backups/`
-- Redis and RabbitMQ data persisted
-- `restart: always` on all containers
-- Mock server disabled
+- nginx reverse proxy with path-based routing
+- Cloudflare for SSL/DNS (free plan, proxied)
 - Stricter rate limits
 
 **The only difference is the `--production` flag.** All code, APIs, and signing are identical.
@@ -126,23 +159,26 @@ sudo bash autoconfig.sh --production --domain ondc.dmj.one
 
 ## Services & URLs
 
-After setup, these services are running:
+After setup, these services are running (managed by PM2, routed by nginx):
 
-| Service | Port | URL (default domain) | Purpose |
-|---------|------|----------------------|---------|
-| Docs Portal | 3000 | `http://ondc.dmj.one` | Landing page + developer documentation |
-| Registry | 3001 | `http://registry.ondc.dmj.one` | Participant registration, key lookup |
-| Gateway | 3002 | `http://gateway.ondc.dmj.one` | Search discovery fan-out |
-| Admin Dashboard | 3003 | `http://admin.ondc.dmj.one` | Network governance UI |
-| BAP Adapter | 3004 | `http://bap.ondc.dmj.one` | Buyer-side protocol adapter |
-| BPP Adapter | 3005 | `http://bpp.ondc.dmj.one` | Seller-side protocol adapter |
-| Mock Server | 3010 | (internal only) | Simulation backend |
-| Nginx | 80 | Routes all subdomains | Reverse proxy |
+| Service | Port | URL Path | Purpose |
+|---------|------|----------|---------|
+| Buyer App | 3012 | `https://ondc.dmj.one/` | Consumer storefront |
+| Seller App | 3013 | `https://ondc.dmj.one/seller` | Seller dashboard |
+| Admin Dashboard | 3014 | `https://ondc.dmj.one/admin` | Network governance UI |
+| Docs/Pitch | 3015 | `https://ondc.dmj.one/docs`, `/pitch` | Documentation + platform pitch |
+| Registry | 3001 | `https://ondc.dmj.one/registry/` | Participant registration, key lookup |
+| Gateway | 3002 | `https://ondc.dmj.one/gateway/` | Search discovery fan-out |
+| BAP Adapter | 3003 | `https://ondc.dmj.one/api/bap/` | Buyer-side protocol adapter |
+| BPP Adapter | 3004 | `https://ondc.dmj.one/api/bpp/` | Seller-side protocol adapter |
+| Vault | 3006 | (internal) | Secret management |
+| Health Monitor | 3007 | (internal) | Service health checks |
+| Nginx | 80 | Path-based routing | Reverse proxy |
 | PostgreSQL | 5432 | (internal) | Database |
 | Redis | 6379 | (internal) | Cache + pub/sub |
 | RabbitMQ | 5672 | (internal) | Message queue |
 
-> If you're running locally without DNS, access services directly via `http://localhost:<port>`.
+> Path-based routing is used instead of subdomains. Cloudflare free plan does not support wildcard DNS proxying, so all services share one domain with different paths.
 
 ---
 
@@ -151,82 +187,72 @@ After setup, these services are running:
 ### Start everything
 
 ```bash
-# Development mode (with mock server for simulation)
-docker compose --profile simulation up -d
-
-# Production mode
-docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+pm2 start ecosystem.config.cjs
 ```
 
 ### Stop everything
 
 ```bash
-# Stop containers (keep data)
-sudo bash teardown.sh
-
-# Stop and delete all data
-sudo bash teardown.sh --volumes
-
-# Stop, delete data, and remove Docker images
-sudo bash teardown.sh --full
+pm2 stop all          # Stop all services (keep process list)
+pm2 delete all        # Remove all processes from PM2
 ```
 
 ### Restart a single service
 
 ```bash
-docker compose restart registry    # Restart just the registry
-docker compose restart gateway     # Restart just the gateway
-docker compose restart admin       # Restart just the admin dashboard
+pm2 restart registry    # Restart just the registry
+pm2 restart gateway     # Restart just the gateway
+pm2 restart admin       # Restart just the admin dashboard
 ```
 
 ### View logs
 
 ```bash
 # All services
-docker compose logs -f
+pm2 logs
 
 # Single service
-docker compose logs -f registry
-docker compose logs -f gateway
-docker compose logs -f admin
+pm2 logs registry
+pm2 logs gateway
+pm2 logs admin
 
 # Last 100 lines
-docker compose logs --tail 100 registry
+pm2 logs --lines 100 registry
 ```
 
 ### Check service status
 
 ```bash
-# See which containers are running
-docker compose ps
+# See which processes are running
+pm2 status
 
-# Health check all services
-pnpm --filter @ondc/scripts health-check
+# Real-time monitoring dashboard
+pm2 monit
 
-# Or manually
+# Health check manually
 curl http://localhost:3001/health   # Registry
 curl http://localhost:3002/health   # Gateway
-curl http://localhost:3003/health   # Admin (Next.js, no /health)
-curl http://localhost:3004/health   # BAP
-curl http://localhost:3005/health   # BPP
-curl http://localhost:3000/health   # Docs
-curl http://localhost:3010/health   # Mock Server
+curl http://localhost:3003/health   # BAP
+curl http://localhost:3004/health   # BPP
+curl http://localhost:3006/health   # Vault
+curl http://localhost:3007/health   # Health Monitor
 ```
 
 ### Rebuild after code changes
 
 ```bash
-docker compose build                 # Rebuild all images
-docker compose up -d                 # Restart with new images
-# Nginx keeps serving while containers restart — near-zero downtime
+pnpm turbo build
+pm2 reload all           # Zero-downtime restart
+# Nginx keeps serving while processes restart
 ```
 
 ### Update from git
 
 ```bash
 git pull
-docker compose build
-docker compose up -d
+pnpm install
+pnpm turbo build
+pm2 reload all
 ```
 
 ---
@@ -548,33 +574,33 @@ Manual deployment script — pulls latest config from git, pulls new images, res
 ### Services won't start
 
 ```bash
-# Check which containers are running
-docker compose ps
+# Check PM2 process status
+pm2 status
 
 # Check logs for errors
-docker compose logs registry
-docker compose logs gateway
+pm2 logs registry
+pm2 logs gateway
 
 # Check if ports are in use
-ss -tlnp | grep -E '(3001|3002|3003|3004|3005|3000|5432|6379|5672)'
+ss -tlnp | grep -E '(3001|3002|3003|3004|3006|3007|3012|3013|3014|3015|5432|6379|5672)'
 ```
 
 ### Database connection errors
 
 ```bash
-# Check if PostgreSQL is healthy
-docker compose exec postgres pg_isready
+# Check if PostgreSQL is running
+sudo systemctl status postgresql
 
 # Check database exists
-docker compose exec postgres psql -U ondc_admin -d ondc -c '\dt'
+sudo -u postgres psql -d ondc -c '\dt'
 
 # Re-run init.sql manually
-docker compose exec postgres psql -U ondc_admin -d ondc -f /docker-entrypoint-initdb.d/init.sql
+sudo -u postgres psql -d ondc -f db/init.sql
 ```
 
 ### Registry /subscribe returns errors
 
-- Ensure the registry container is running: `docker compose ps registry`
+- Ensure the registry process is running: `pm2 status registry`
 - Check that `encr_public_key` is a valid X25519 key (not Ed25519)
 - Verify the subscriber_id is unique
 
@@ -582,7 +608,7 @@ docker compose exec postgres psql -U ondc_admin -d ondc -f /docker-entrypoint-in
 
 - Check that the BAP is registered and SUBSCRIBED in the registry
 - Verify the Authorization header is correctly signed
-- Check RabbitMQ is running: `docker compose ps rabbitmq`
+- Check RabbitMQ is running: `sudo systemctl status rabbitmq-server`
 - Verify there are BPPs registered for the requested domain+city
 
 ### Admin dashboard shows "Unauthorized"
@@ -593,15 +619,14 @@ docker compose exec postgres psql -U ondc_admin -d ondc -f /docker-entrypoint-in
 
 ### Simulation fails
 
-- Ensure mock-server is running: `docker compose --profile simulation up -d mock-server`
-- Check mock-server health: `curl http://localhost:3010/health`
-- Verify all core services are healthy first
+- Verify all core services are healthy first: `pm2 status`
+- Check mock-server logs: `pm2 logs mock-server`
 
-### Container keeps restarting
+### Process keeps restarting
 
 ```bash
 # Check the crash logs
-docker compose logs --tail 50 <service-name>
+pm2 logs --lines 50 <service-name>
 
 # Common causes:
 # - Database not ready yet (wait and retry)
@@ -612,8 +637,12 @@ docker compose logs --tail 50 <service-name>
 ### Reset everything and start fresh
 
 ```bash
-sudo bash teardown.sh --full --yes
-sudo bash autoconfig.sh
+pm2 delete all
+sudo -u postgres dropdb ondc
+sudo -u postgres createdb ondc -O ondc_admin
+sudo -u postgres psql -d ondc -f db/init.sql
+pnpm turbo build
+pm2 start ecosystem.config.cjs
 ```
 
 ---
@@ -622,29 +651,33 @@ sudo bash autoconfig.sh
 
 ```
                       +------------------------------------------+
-                      |         VM (any cloud provider)          |
+                      |   GCloud VM (e2-standard-4, Ubuntu 24.04)|
                       |                                          |
    Internet           |  +--------+                              |
    -------> Cloudflare|  | Nginx  |  Reverse Proxy               |
-            (SSL/DNS) |  | :80    |  Routes by subdomain          |
+            (SSL/DNS) |  | :80    |  Path-based routing           |
                       |  +---+----+                              |
                       |      |                                   |
-        +-------------+------+----------------------------+      |
-        |             |      v                            |      |
-        |  +-------+-------+-------+-------+-------+     |      |
-        |  |registry|gateway| admin |  bap  |  bpp  |     |      |
-        |  | :3001  | :3002 | :3003 | :3004 | :3005 |     |      |
-        |  +-------+-------+-------+-------+-------+     |      |
-        |  |  docs  | mock-server                   |     |      |
-        |  | :3000  | :3010 (simulation only)       |     |      |
-        |  +-------+-------------------------------+     |      |
-        |             |                                   |      |
-        |  +----------+-----------+-----------+          |      |
-        |  | PostgreSQL | Redis   | RabbitMQ  |          |      |
-        |  | :5432      | :6379   | :5672     |          |      |
-        |  +------------+---------+-----------+          |      |
-        |           Docker Compose Network                |      |
-        +------------------------------------------------+      |
+                      |      v  (PM2 managed processes)          |
+                      |  +----------+----------+----------+      |
+                      |  | registry | gateway  | vault    |      |
+                      |  | :3001    | :3002    | :3006    |      |
+                      |  +----------+----------+----------+      |
+                      |  | bap      | bpp      | health   |      |
+                      |  | :3003    | :3004    | :3007    |      |
+                      |  +----------+----------+----------+      |
+                      |  | buyer-app| seller   | admin    |      |
+                      |  | :3012    | :3013    | :3014    |      |
+                      |  +----------+----------+----------+      |
+                      |  | docs     |                     |      |
+                      |  | :3015    |                     |      |
+                      |  +----------+                     |      |
+                      |                                          |
+                      |  +------------+---------+-----------+    |
+                      |  | PostgreSQL | Redis   | RabbitMQ  |    |
+                      |  | :5432      | :6379   | :5672     |    |
+                      |  +------------+---------+-----------+    |
+                      |        (native apt-get installed)        |
                       +------------------------------------------+
 ```
 
@@ -654,20 +687,20 @@ sudo bash autoconfig.sh
 |-------|-----------|
 | Language | TypeScript (strict) |
 | Runtime | Node.js 22 LTS |
+| Process Manager | PM2 (10 services) |
 | Monorepo | Turborepo + pnpm workspaces |
 | Protocol Services | Fastify |
 | Admin Dashboard | Next.js 15 (App Router) |
 | Docs Portal | Next.js 15 |
-| Database | PostgreSQL 16 |
+| Database | PostgreSQL 16 (native) |
 | ORM | Drizzle ORM |
-| Cache | Redis 7 |
-| Message Queue | RabbitMQ 3.13 |
+| Cache | Redis 7 (native) |
+| Message Queue | RabbitMQ 3.13 (native) |
 | Crypto | @noble/curves + blakejs |
 | Auth | NextAuth.js |
-| Reverse Proxy | Nginx |
-| Containers | Docker + Docker Compose |
-| CI/CD | GitHub Actions + GHCR + Watchtower |
-| SSL | Cloudflare (proxy mode) |
+| Reverse Proxy | nginx (path-based routing) |
+| CI/CD | GitHub Actions |
+| SSL | Cloudflare (free plan, proxied) |
 
 ---
 

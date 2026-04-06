@@ -17,14 +17,257 @@
 
 | Software | Version | Notes |
 |----------|---------|-------|
-| OS | Ubuntu 22.04+ | Any Linux with Docker works |
-| Docker | 24.0+ | With Compose V2 |
-| Node.js | 22 LTS | Only for local dev |
-| pnpm | 10+ | Only for local dev |
+| OS | Ubuntu 22.04+ | Tested on 24.04 LTS |
+| Node.js | 22 LTS | Required |
+| pnpm | 10+ | Required |
+| PM2 | latest | Process manager (recommended) |
+| PostgreSQL | 16 | Native install via apt |
+| Redis | 7 | Native install via apt |
+| RabbitMQ | 3.13 | Native install via apt |
+| nginx | latest | Reverse proxy |
+| Docker | 24.0+ | Optional (alternative to PM2) |
 
 ---
 
-## Quick Deploy (Docker Compose)
+## Direct VM Deployment (Recommended)
+
+The production instance at ondc.dmj.one runs natively on a GCloud VM with PM2. No Docker.
+
+### Prerequisites
+
+- Ubuntu 22.04+ (tested on 24.04 LTS)
+- 4 vCPU, 16GB RAM minimum (GCloud e2-standard-4)
+- 50GB disk
+- Domain with DNS pointing to the VM
+
+### 1. Create the VM (GCloud)
+
+```bash
+gcloud compute instances create ondc-demo \
+  --zone=asia-south1-b \
+  --machine-type=e2-standard-4 \
+  --image-family=ubuntu-2404-lts-amd64 \
+  --image-project=ubuntu-os-cloud \
+  --boot-disk-size=50GB \
+  --tags=http-server,https-server
+```
+
+Allow HTTP/HTTPS traffic:
+
+```bash
+gcloud compute firewall-rules create allow-http --allow tcp:80 --target-tags http-server
+gcloud compute firewall-rules create allow-https --allow tcp:443 --target-tags https-server
+```
+
+### 2. Install System Dependencies
+
+```bash
+# Node.js 22
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# PostgreSQL, Redis, RabbitMQ, nginx
+sudo apt-get install -y postgresql redis-server rabbitmq-server nginx
+
+# pnpm and PM2
+sudo npm install -g pnpm@10.30.1 pm2
+```
+
+### 3. Clone and Configure
+
+```bash
+git clone https://github.com/divyamohan1993/ondc-network-beckn.git
+cd ondc-network-beckn
+./autoconfig.sh --domain your-domain.com
+```
+
+The script generates all Ed25519 key pairs, random passwords, vault master key, and writes `.env`.
+
+### 4. Setup PostgreSQL
+
+```bash
+sudo -u postgres createuser -s ondc_admin
+sudo -u postgres createdb ondc -O ondc_admin
+sudo -u postgres psql -d ondc -f db/init.sql
+```
+
+### 5. Setup RabbitMQ
+
+```bash
+sudo rabbitmqctl add_user ondc "$(grep RABBITMQ_PASSWORD .env | cut -d= -f2)"
+sudo rabbitmqctl set_permissions -p / ondc ".*" ".*" ".*"
+sudo rabbitmqctl set_user_tags ondc administrator
+```
+
+### 6. Install, Build, Start
+
+```bash
+pnpm install
+pnpm turbo build
+pm2 start ecosystem.config.cjs
+pm2 save && pm2 startup
+```
+
+### 7. Configure nginx
+
+Create `/etc/nginx/sites-available/ondc`:
+
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3012;  # buyer-app
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /seller {
+        proxy_pass http://127.0.0.1:3013;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /admin {
+        proxy_pass http://127.0.0.1:3014;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /pitch {
+        proxy_pass http://127.0.0.1:3015/pitch;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /docs {
+        proxy_pass http://127.0.0.1:3015/docs;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /registry/ {
+        proxy_pass http://127.0.0.1:3001/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /gateway/ {
+        proxy_pass http://127.0.0.1:3002/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /api/bap/ {
+        proxy_pass http://127.0.0.1:3003/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+    location /api/bpp/ {
+        proxy_pass http://127.0.0.1:3004/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+Enable the site:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/ondc /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+### 8. Cloudflare DNS Setup
+
+1. Add an **A record** for `your-domain.com` pointing to the VM's external IP
+2. Set proxy status to **Proxied** (orange cloud) for free SSL termination
+3. In SSL/TLS settings, set mode to **Full** (not Full Strict, since the origin uses HTTP)
+4. Wildcard subdomains require a paid plan. Use path-based routing instead (already configured above)
+
+If not using Cloudflare, use Let's Encrypt:
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+```
+
+### 9. Seed Pincode Database
+
+```bash
+pnpm seed:pincodes
+```
+
+### 10. Enable PM2 Auto-Start on Reboot
+
+```bash
+pm2 save
+pm2 startup
+# Run the command PM2 prints (it needs sudo)
+```
+
+### Port Mapping
+
+| Service | Port | Path |
+|---------|------|------|
+| Buyer App | 3012 | `/` |
+| Seller App | 3013 | `/seller` |
+| Admin | 3014 | `/admin` |
+| Docs/Pitch | 3015 | `/docs`, `/pitch` |
+| Registry | 3001 | `/registry/` |
+| Gateway | 3002 | `/gateway/` |
+| BAP | 3003 | `/api/bap/` |
+| BPP | 3004 | `/api/bpp/` |
+| Vault | 3006 | (internal) |
+| Health Monitor | 3007 | (internal) |
+
+### PM2 Monitoring
+
+```bash
+pm2 status          # Service status
+pm2 logs            # All logs
+pm2 logs bap        # Service-specific logs
+pm2 monit           # Real-time dashboard
+pm2 reload all      # Zero-downtime restart
+```
+
+### Backup (Native PostgreSQL)
+
+```bash
+# Backup
+sudo -u postgres pg_dump ondc > backup-$(date +%Y%m%d).sql
+
+# Restore
+sudo -u postgres psql ondc < backup-20260101.sql
+```
+
+### Troubleshooting (PM2)
+
+| Issue | Fix |
+|-------|-----|
+| Service crashed | `pm2 logs <name>` to check, `pm2 restart <name>` to recover |
+| All services down | `pm2 resurrect` (restores saved process list) |
+| Port conflict | `ss -tlnp \| grep <port>` to find the conflicting process |
+| DB connection refused | `sudo systemctl status postgresql` |
+| Redis down | `sudo systemctl status redis-server` |
+| RabbitMQ down | `sudo systemctl status rabbitmq-server` |
+
+---
+
+## Docker Compose Deploy
 
 ### Automated
 
@@ -179,36 +422,34 @@ Full reference: [.env.example](.env.example) (269 variables).
 
 ## SSL/TLS Setup
 
-### Option A: Let's Encrypt (Certbot)
+### Option A: Cloudflare (Recommended, used in production)
 
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-
-sudo certbot --nginx \
-  -d your-domain.com \
-  -d registry.your-domain.com \
-  -d gateway.your-domain.com \
-  -d admin.your-domain.com \
-  -d bap.your-domain.com \
-  -d bpp.your-domain.com \
-  -d shop.your-domain.com \
-  -d seller.your-domain.com
-
-# Verify auto-renewal
-sudo certbot renew --dry-run
-```
-
-### Option B: Reverse Proxy (Cloudflare/AWS ALB)
-
-TLS-terminating load balancer in front of Nginx:
+The production deployment uses Cloudflare's free plan for SSL termination:
 
 ```
-Client --> Cloudflare/ALB (TLS) --> Nginx :80 --> Services
+Client --> Cloudflare (TLS termination) --> nginx :80 --> PM2 services
 ```
+
+1. Add your domain to Cloudflare (free plan)
+2. Set an A record pointing to your VM's IP with proxy status **Proxied** (orange cloud)
+3. In SSL/TLS settings, set encryption mode to **Full**
+4. All services share one domain with path-based routing (no subdomains needed)
 
 Update `.env`:
 ```bash
-NEXTAUTH_URL=https://admin.your-domain.com
+NEXTAUTH_URL=https://your-domain.com/admin
+```
+
+### Option B: Let's Encrypt (Certbot)
+
+For direct SSL without Cloudflare:
+
+```bash
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d your-domain.com
+
+# Verify auto-renewal
+sudo certbot renew --dry-run
 ```
 
 ### Kubernetes
@@ -219,7 +460,17 @@ cert-manager handles TLS automatically. Configured in `k8s/base/ingress/`.
 
 ## DNS Configuration
 
-Point subdomains to your server IP:
+### Path-Based Routing (Recommended, Cloudflare Free Plan)
+
+With path-based routing via nginx, you only need one DNS record:
+
+| Record | Type | Value | Proxy |
+|--------|------|-------|-------|
+| `your-domain.com` | A | `<server-ip>` | Proxied (orange cloud) |
+
+All services are accessed via paths (`/seller`, `/admin`, `/registry/`, etc.) on a single domain. This works with Cloudflare's free plan since wildcard DNS proxying requires a paid plan.
+
+### Subdomain Routing (Alternative, requires Cloudflare paid plan or direct SSL)
 
 | Record | Type | Value |
 |--------|------|-------|
@@ -277,29 +528,28 @@ Every service exposes `GET /health`:
 
 ## Backup & Recovery
 
-### Database
+### Database (Native PostgreSQL)
 
 ```bash
 # Backup
-docker compose exec postgres pg_dump -U ondc_admin ondc > backup-$(date +%Y%m%d).sql
+sudo -u postgres pg_dump ondc > backup-$(date +%Y%m%d).sql
 
 # Restore
-docker compose exec -T postgres psql -U ondc_admin ondc < backup-20260101.sql
+sudo -u postgres psql ondc < backup-20260101.sql
 ```
 
 ### Automated Backups
 
 ```bash
 # Cron: daily at 2 AM, keep 30 days
-0 2 * * * docker compose -f /path/to/docker-compose.yml exec -T postgres pg_dump -U ondc_admin ondc | gzip > /backups/ondc-$(date +\%Y\%m\%d).sql.gz && find /backups -name "ondc-*.sql.gz" -mtime +30 -delete
+0 2 * * * sudo -u postgres pg_dump ondc | gzip > /backups/ondc-$(date +\%Y\%m\%d).sql.gz && find /backups -name "ondc-*.sql.gz" -mtime +30 -delete
 ```
 
-### Volume Backup
+### Database (Docker, if using Docker Compose)
 
 ```bash
-docker compose stop
-docker run --rm -v ondc-network-beckn_pgdata:/data -v $(pwd):/backup alpine tar czf /backup/pgdata.tar.gz -C /data .
-docker compose start
+docker compose exec postgres pg_dump -U ondc_admin ondc > backup-$(date +%Y%m%d).sql
+docker compose exec -T postgres psql -U ondc_admin ondc < backup-20260101.sql
 ```
 
 ---
@@ -363,18 +613,21 @@ bash scripts/k8s-helpers/teardown-k8s.sh reset  # Wipe DB, re-init
 Every push to `main`:
 
 1. **CI** -- build + test (GitHub Actions)
-2. **Docker Build** -- changed services built in parallel, pushed to GHCR
 
-### Auto-Deploy (Watchtower)
-
-Servers provisioned with `setup-server.sh` include Watchtower:
-
-- Polls GHCR every 5 minutes
-- Pulls new `:latest` images, rolling restart
-- Scoped to ONDC containers only
+### Deploy with PM2 (Production)
 
 ```
-git push --> GitHub Actions --> GHCR --> Watchtower --> running containers
+git push --> GitHub Actions (CI) --> SSH to VM --> git pull && pnpm turbo build && pm2 reload all
+```
+
+Or manually on the VM:
+
+```bash
+cd /path/to/ondc-network-beckn
+git pull
+pnpm install
+pnpm turbo build
+pm2 reload all
 ```
 
 ### Server Provisioning
@@ -390,11 +643,36 @@ curl -fsSL https://raw.githubusercontent.com/divyamohan1993/ondc-network-beckn/m
 
 | Issue | Cause | Fix |
 |-------|-------|-----|
-| `ECONNREFUSED` | Service not ready | Wait for health checks, check `depends_on` |
-| `FATAL: password authentication failed` | Wrong DB password | Verify `.env` matches compose |
+| `ECONNREFUSED` | Service not ready | `pm2 status` to check, `pm2 restart <name>` to recover |
+| `FATAL: password authentication failed` | Wrong DB password | Verify `.env` matches PostgreSQL config |
 | `NACK` responses | Signature verification failed | Regenerate keys, check clock sync |
 | Admin login fails | Wrong credentials | Check `ADMIN_EMAIL` / `ADMIN_PASSWORD` in `.env` |
 | Vault errors | Master key mismatch | `VAULT_MASTER_KEY` must not change between deploys |
+| Service keeps crashing | Check crash logs | `pm2 logs <name>` for details |
+
+### PM2 Deployment
+
+```bash
+# Check service status
+pm2 status
+
+# Check service logs
+pm2 logs --lines 50 <service-name>
+
+# Check infrastructure
+sudo systemctl status postgresql
+sudo systemctl status redis-server
+sudo systemctl status rabbitmq-server
+
+# Full reset
+pm2 delete all
+sudo -u postgres dropdb ondc
+sudo -u postgres createdb ondc -O ondc_admin
+sudo -u postgres psql -d ondc -f db/init.sql
+pm2 start ecosystem.config.cjs
+```
+
+### Docker Deployment
 
 ```bash
 # Check service logs

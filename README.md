@@ -73,35 +73,51 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the full deep-dive.
 
 ## Quick Start
 
-### Prerequisites
-
-- Ubuntu 22.04+ (or any Linux with Docker)
-- Docker 24.0+ with Compose V2
-- 4 GB RAM minimum, 8 GB recommended
-
-### Deploy
+### Option 1: Direct Deployment (Recommended for demo/staging)
 
 ```bash
+# On Ubuntu 22.04+ VM (e2-standard-4 or equivalent, 4 vCPU / 16GB RAM)
+
+# 1. Install prerequisites
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs postgresql redis-server rabbitmq-server nginx
+sudo npm install -g pnpm@10.30.1 pm2
+
+# 2. Clone and configure
 git clone https://github.com/divyamohan1993/ondc-network-beckn.git
 cd ondc-network-beckn
+./autoconfig.sh --domain your-domain.com
 
-# Automated: installs Docker, generates keys, builds, seeds, starts everything
-sudo bash autoconfig.sh --domain your-domain.com
+# 3. Setup database
+sudo -u postgres createuser -s ondc_admin
+sudo -u postgres createdb ondc -O ondc_admin
+sudo -u postgres psql -d ondc -f db/init.sql
 
-# Or with production hardening
-sudo bash autoconfig.sh --production --domain your-domain.com
+# 4. Install, build, start
+pnpm install && pnpm turbo build
+pm2 start ecosystem.config.cjs
+pm2 save && pm2 startup
+
+# 5. Seed pincode data
+pnpm seed:pincodes
 ```
 
-### Access Points
+Access:
+- `https://your-domain.com/` -- Buyer storefront
+- `https://your-domain.com/seller` -- Seller dashboard
+- `https://your-domain.com/admin` -- Admin panel
+- `https://your-domain.com/pitch` -- Platform pitch
 
-| Service | URL |
-|---------|-----|
-| Buyer Storefront | `https://shop.your-domain.com` |
-| Seller Dashboard | `https://seller.your-domain.com` |
-| Admin Panel | `https://admin.your-domain.com` |
-| Registry | `https://registry.your-domain.com` |
-| Gateway | `https://gateway.your-domain.com` |
-| Docs | `https://your-domain.com` |
+### Option 2: Docker Compose
+
+```bash
+./autoconfig.sh --domain your-domain.com
+docker compose up -d
+```
+
+### Option 3: Kubernetes
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for GKE/EKS deployment.
 
 ### Local Development
 
@@ -159,10 +175,12 @@ pnpm dev
 - [x] Prometheus + Grafana monitoring stack (production compose)
 
 ### Deployment
+- [x] PM2 process management on native Linux (recommended for demo/staging)
+- [x] nginx reverse proxy with path-based routing
+- [x] Cloudflare DNS/SSL integration (free plan)
 - [x] Docker Compose with health checks and dependency ordering
 - [x] Kubernetes manifests (GKE, minikube, kind) with HPA and PDBs
 - [x] GitHub Actions CI/CD with smart change detection
-- [x] Watchtower auto-deploy from GHCR
 - [x] One-command server provisioning (`setup-server.sh`)
 
 ---
@@ -257,8 +275,9 @@ See [KNOWN_LIMITS.md](KNOWN_LIMITS.md) for items that require organizational or 
 | Hashing | BLAKE-512 |
 | Monitoring | Prometheus + Grafana |
 | Testing | Vitest + V8 coverage |
-| CI/CD | GitHub Actions + GHCR + Watchtower |
-| Containers | Docker with multi-stage builds |
+| Process Manager | PM2 (production) |
+| CI/CD | GitHub Actions |
+| Containers | Docker with multi-stage builds (optional) |
 
 ---
 
