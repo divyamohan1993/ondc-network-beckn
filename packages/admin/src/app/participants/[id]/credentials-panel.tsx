@@ -50,7 +50,8 @@ export default function CredentialsPanel({ id }: CredentialsPanelProps) {
       const res = await fetch(`/api/participants/${id}/credentials`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to generate credentials');
       const data = await res.json();
-      setCredentials(data.credentials);
+      const creds = Array.isArray(data.credentials) ? data.credentials[0] ?? null : data.credentials;
+      setCredentials(creds);
       setConfirmRegen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate credentials');
