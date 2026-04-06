@@ -45,10 +45,13 @@ export async function registerAuthRoutes(fastify: FastifyInstance): Promise<void
 
       logger.info({ phone: phone.slice(-4) }, "OTP sent");
 
+      // In demo/mock mode, return OTP in response so the frontend can display it
+      const isDemoMode = process.env.SMS_PROVIDER === "mock" || !process.env.SMS_PROVIDER;
       return reply.code(200).send({
         success: true,
         expiresAt: expiresAt.toISOString(),
         message: "OTP sent to your phone number.",
+        ...(isDemoMode ? { otp } : {}),
       });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to send OTP.";

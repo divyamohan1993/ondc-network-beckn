@@ -9,8 +9,6 @@ import SkipNav from "@/components/SkipNav";
 import type { Locale } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 
-const BAP_URL = process.env.NEXT_PUBLIC_BAP_URL || "";
-
 function LoginContent() {
   const searchParams = useSearchParams();
   const locale = (searchParams.get("lang") === "hi" ? "hi" : "en") as Locale;
@@ -18,6 +16,7 @@ function LoginContent() {
 
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
+  const [demoOtp, setDemoOtp] = useState("");
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -30,16 +29,20 @@ function LoginContent() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${BAP_URL}/auth/send-otp`, {
+      const res = await fetch(`/auth/send-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone }),
       });
+      const data = await res.json().catch(() => null);
       if (res.ok) {
         setStep("otp");
+        // In demo mode (SMS_PROVIDER=mock), the OTP is returned in the response
+        if (data?.otp) {
+          setDemoOtp(data.otp);
+        }
       } else {
-        const data = await res.json().catch(() => null);
-        setError(data?.error?.message || "Failed to send OTP. Try again.");
+        setError(data?.error?.message || data?.error || "Failed to send OTP. Try again.");
       }
     } catch {
       setError("Network error. Check your connection.");
@@ -56,7 +59,7 @@ function LoginContent() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${BAP_URL}/auth/verify-otp`, {
+      const res = await fetch(`/auth/verify-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, otp }),
@@ -128,6 +131,12 @@ function LoginContent() {
                   ? `+91 ${phone} पर OTP भेजा गया`
                   : `OTP sent to +91 ${phone}`}
               </p>
+              {demoOtp && (
+                <div className="bg-[#1a3a1a] border border-[#138808] rounded-lg p-3 text-center" role="alert">
+                  <p className="text-xs text-[#4ade80] mb-1">Demo Mode — OTP displayed here</p>
+                  <p className="text-2xl font-mono font-bold tracking-[0.3em] text-white">{demoOtp}</p>
+                </div>
+              )}
               <div>
                 <label htmlFor="otp" className="form-label">
                   {locale === "hi" ? "OTP दर्ज करें" : "Enter OTP"}
