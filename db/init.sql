@@ -29,6 +29,13 @@ CREATE TABLE IF NOT EXISTS subscribers (
   valid_from TIMESTAMPTZ,
   valid_until TIMESTAMPTZ,
   webhook_url TEXT,
+  org_name TEXT,
+  gst_number TEXT,
+  pan_number TEXT,
+  signatory_name TEXT,
+  contact_email TEXT,
+  contact_phone TEXT,
+  callback_url TEXT,
   is_simulated BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
