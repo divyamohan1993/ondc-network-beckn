@@ -36,7 +36,16 @@ Thumbs.db
 .vscode/settings.json
 .idea/
 
-# Docker volumes (local)
-pgdata/
-redisdata/
-rabbitmqdata/
+# Uploads
+uploads/
+
+# Terraform
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+infra/terraform.tfvars
+
+# PM2
+.pm2/
+ecosystem.config.cjs

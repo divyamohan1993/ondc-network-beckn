@@ -2,10 +2,10 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'ONDC Network Platform — Documentation',
+  title: 'Setu — Open Commerce Infrastructure for Bharat',
   description:
-    'Your own private Beckn network — protocol-identical to India\'s ONDC. Complete developer documentation, API reference, and integration guides.',
-  keywords: ['ONDC', 'Beckn', 'network', 'protocol', 'API', 'documentation'],
+    'An open-source implementation of the ONDC Beckn protocol stack. Registry, gateway, BAP, BPP, and full developer documentation in a single deployable stack.',
+  keywords: ['ONDC', 'Beckn', 'open commerce', 'India', 'Setu', 'digital commerce', 'open source'],
 };
 
 const docsDropdownItems = [

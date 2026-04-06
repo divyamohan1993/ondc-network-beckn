@@ -245,14 +245,22 @@ server {
     server_name $DOMAIN _;
     client_max_body_size 20m;
 
-    # Buyer app (default)
+    # Landing page (docs app serves /)
     location / {
-        proxy_pass http://127.0.0.1:3012;
+        proxy_pass http://127.0.0.1:3015;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
+
+    # Buyer app at /shop
+    location /shop/ {
+        proxy_pass http://127.0.0.1:3012/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+    location = /shop { return 301 /shop/; }
+    location /shop/_next/ { proxy_pass http://127.0.0.1:3012/_next/; proxy_set_header Host \$host; }
 
     # Seller dashboard
     location /seller/ {
@@ -274,7 +282,7 @@ server {
     location = /admin { return 301 /admin/; }
     location /admin/_next/ { proxy_pass http://127.0.0.1:3014/_next/; proxy_set_header Host \$host; }
 
-    # Docs + Pitch
+    # Docs + Pitch (served by docs app, already handled by / catch-all, but explicit for _next)
     location /pitch { proxy_pass http://127.0.0.1:3015/pitch; proxy_set_header Host \$host; proxy_set_header X-Forwarded-Proto \$scheme; }
     location /docs  { proxy_pass http://127.0.0.1:3015/docs;  proxy_set_header Host \$host; }
 
@@ -375,7 +383,8 @@ done
 
 echo ""
 echo -e "${BOLD}  URLs:${NC}"
-echo -e "  Buyer App:     https://$DOMAIN/"
+echo -e "  Landing Page:  https://$DOMAIN/"
+echo -e "  Buyer App:     https://$DOMAIN/shop/"
 echo -e "  Seller:        https://$DOMAIN/seller/"
 echo -e "  Admin:         https://$DOMAIN/admin/"
 echo -e "  Onboarding:    https://$DOMAIN/admin/onboard"
