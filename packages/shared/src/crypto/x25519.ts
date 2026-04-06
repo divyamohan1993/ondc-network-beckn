@@ -1,5 +1,6 @@
 import nacl from "tweetnacl";
-import { seal, open } from "tweetnacl-sealedbox-js";
+import sealedbox from "tweetnacl-sealedbox-js";
+const { seal, open } = sealedbox;
 
 export interface X25519KeyPair {
   privateKey: string;
