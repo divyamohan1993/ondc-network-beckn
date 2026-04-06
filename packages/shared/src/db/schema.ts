@@ -72,10 +72,39 @@ export const subscribers = pgTable("subscribers", {
   valid_from: timestamp("valid_from", { withTimezone: true }),
   valid_until: timestamp("valid_until", { withTimezone: true }),
   webhook_url: text("webhook_url"),
+  org_name: text("org_name"),
+  gst_number: text("gst_number"),
+  pan_number: text("pan_number"),
+  signatory_name: text("signatory_name"),
+  contact_email: text("contact_email"),
+  contact_phone: text("contact_phone"),
+  callback_url: text("callback_url"),
   is_simulated: boolean("is_simulated").default(false),
   created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
   updated_at: timestamp("updated_at", { withTimezone: true }).defaultNow(),
 });
+
+export const participantCredentials = pgTable(
+  "participant_credentials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    subscriber_id: text("subscriber_id")
+      .notNull()
+      .references(() => subscribers.subscriber_id),
+    signing_private_key: text("signing_private_key").notNull(),
+    signing_public_key: text("signing_public_key").notNull(),
+    encryption_private_key: text("encryption_private_key"),
+    encryption_public_key: text("encryption_public_key"),
+    unique_key_id: text("unique_key_id").notNull(),
+    env_blob: jsonb("env_blob").notNull(),
+    is_active: boolean("is_active").default(true),
+    created_at: timestamp("created_at", { withTimezone: true }).defaultNow(),
+    revoked_at: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("idx_participant_credentials_subscriber_id").on(table.subscriber_id),
+  ],
+);
 
 export const domains = pgTable("domains", {
   id: uuid("id").primaryKey().defaultRandom(),
