@@ -201,6 +201,103 @@ export function validatePriceAgainstMrp(
 // Grievance Acknowledgement Timelines (E-Commerce Rules 2020)
 // -------------------------------------------------------------------------
 
+// -------------------------------------------------------------------------
+// FSSAI License Validation (FSSAI Act 2006)
+// -------------------------------------------------------------------------
+
+/**
+ * Valid FSSAI license type prefixes (digits 1-2).
+ * 10 = Central License
+ * 11 = State License
+ * 12 = Registration
+ * 20 = Central Manufacturing
+ * 21 = State Manufacturing
+ */
+const FSSAI_LICENSE_TYPES: Record<string, string> = {
+  "10": "Central License",
+  "11": "State License",
+  "12": "Registration",
+  "20": "Central Manufacturing",
+  "21": "State Manufacturing",
+};
+
+/**
+ * Valid Indian state codes for FSSAI (digits 3-4).
+ * These correspond to the state numbering used by FSSAI,
+ * which aligns with the GST state code system.
+ */
+const VALID_FSSAI_STATE_CODES = new Set([
+  "01", "02", "03", "04", "05", "06", "07", "08", "09", "10",
+  "11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+  "21", "22", "23", "24", "25", "26", "27", "28", "29", "30",
+  "31", "32", "33", "34", "35", "36", "37", "38",
+]);
+
+export interface FssaiValidationResult {
+  valid: boolean;
+  licenseType?: string;
+  stateCode?: string;
+  yearOfIssue?: string;
+  errors: string[];
+}
+
+/**
+ * Validate FSSAI license number format with structural breakdown.
+ *
+ * FSSAI license number is 14 digits:
+ * - Digits 1-2: License type (10=Central, 11=State, 12=Registration, etc.)
+ * - Digits 3-4: State code
+ * - Digits 5-6: Year of issue (YY)
+ * - Digits 7-14: Serial number
+ *
+ * @param license - 14-digit FSSAI license number
+ * @returns Validation result with parsed components
+ */
+export function validateFssaiLicense(license: string): FssaiValidationResult {
+  const errors: string[] = [];
+
+  if (!license || !/^[0-9]{14}$/.test(license)) {
+    return { valid: false, errors: ["FSSAI license must be exactly 14 digits"] };
+  }
+
+  const licenseTypeCode = license.substring(0, 2);
+  const stateCode = license.substring(2, 4);
+  const yearOfIssue = license.substring(4, 6);
+
+  const licenseType = FSSAI_LICENSE_TYPES[licenseTypeCode];
+  if (!licenseType) {
+    errors.push(
+      `Invalid FSSAI license type: ${licenseTypeCode}. Valid types: ${Object.entries(FSSAI_LICENSE_TYPES)
+        .map(([k, v]) => `${k}=${v}`)
+        .join(", ")}`,
+    );
+  }
+
+  if (!VALID_FSSAI_STATE_CODES.has(stateCode)) {
+    errors.push(`Invalid state code in FSSAI license: ${stateCode}`);
+  }
+
+  // Year sanity check: should be between 2006 (FSSAI Act) and current year
+  const yearNum = parseInt(yearOfIssue, 10);
+  const currentYearShort = new Date().getFullYear() % 100;
+  if (yearNum > currentYearShort && yearNum < 80) {
+    // Allow future dates up to current year, and old dates 80-99 for legacy
+    errors.push(`Suspicious year of issue in FSSAI license: 20${yearOfIssue}`);
+  }
+
+  return {
+    valid: errors.length === 0,
+    licenseType,
+    stateCode: errors.length === 0 ? stateCode : undefined,
+    yearOfIssue: errors.length === 0 ? `20${yearOfIssue}` : undefined,
+    errors,
+  };
+}
+
+// -------------------------------------------------------------------------
+// Grievance Timelines (E-Commerce Rules 2020)
+// -------------------------------------------------------------------------
+
 /** Grievance must be acknowledged within 48 hours. */
 export const GRIEVANCE_ACK_HOURS = 48;
 

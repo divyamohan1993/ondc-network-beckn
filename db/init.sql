@@ -554,7 +554,7 @@ INSERT INTO domains (code, name, description, schema_version) VALUES
   ('ONDC:SRV13', 'Education Services', 'EdTech, courses, certifications', '1.2.0'),
   ('ONDC:SRV14', 'Agriculture Services', 'Agri advisory, soil testing, drone spraying', '1.2.0'),
   ('ONDC:SRV16', 'Skilling Services', 'Professional training, vocational skilling', '1.2.0'),
-  ('ONDC:SRV17', 'Financial Services', 'Insurance, mutual funds, credit', '1.2.0'),
+  ('ONDC:SRV17', 'Consultation Services', 'Legal, financial advisory, professional consultation', '1.2.0'),
   ('ONDC:SRV18', 'Home Services', 'Plumbing, electrical, cleaning, repair', '1.2.0'),
   -- Mobility domains
   ('ONDC:TRV10', 'Mobility', 'Cab rides, auto rides, bike taxis', '1.2.0'),
@@ -648,14 +648,14 @@ INSERT INTO cities (code, name, state) VALUES
   ('std:0657', 'Jamshedpur', 'Jharkhand'),
   ('std:0674', 'Bhubaneswar', 'Odisha'),
   ('std:0671', 'Cuttack', 'Odisha'),
-  ('std:0680', 'Rourkela', 'Odisha'),
+  ('std:0661', 'Rourkela', 'Odisha'),
   -- Central India
   ('std:0755', 'Bhopal', 'Madhya Pradesh'),
   ('std:0731', 'Indore', 'Madhya Pradesh'),
   ('std:0761', 'Jabalpur', 'Madhya Pradesh'),
   ('std:0751', 'Gwalior', 'Madhya Pradesh'),
   ('std:0771', 'Raipur', 'Chhattisgarh'),
-  ('std:0788', 'Bilaspur', 'Chhattisgarh'),
+  ('std:07752', 'Bilaspur', 'Chhattisgarh'),
   -- Northeast India
   ('std:0361', 'Guwahati', 'Assam'),
   ('std:0364', 'Silchar', 'Assam'),

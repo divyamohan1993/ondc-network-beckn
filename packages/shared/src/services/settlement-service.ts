@@ -4,6 +4,7 @@ import { settlementInstructions, withholdingPool, nbblRegistrations } from "../d
 import { createLogger } from "../utils/logger.js";
 import { sign } from "../crypto/ed25519.js";
 import { SettlementBasis, NocsTxnStatus } from "../protocol/rsf-types.js";
+import { validateIfsc } from "./ifsc-service.js";
 
 const logger = createLogger("settlement-service");
 
@@ -276,6 +277,14 @@ export class SettlementService {
     vpa?: string;
     settlementAgencyId: string;
   }): Promise<void> {
+    // Validate IFSC against RBI database via Razorpay public API
+    const ifscResult = await validateIfsc(registration.ifsc);
+    if (!ifscResult.valid) {
+      throw new Error(`Invalid IFSC: ${ifscResult.error}`);
+    }
+    // Enrich with verified bank name from RBI database
+    registration.bankName = ifscResult.bank?.bank || registration.bankName;
+
     await this.db
       .insert(nbblRegistrations)
       .values({

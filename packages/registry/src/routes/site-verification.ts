@@ -37,10 +37,12 @@ export const siteVerificationRoutes: FastifyPluginAsync = async (fastify: Fastif
       logger.warn("REGISTRY_SIGNING_PRIVATE_KEY not set, site verification will return unsigned content");
     }
 
-    reply.type("text/html").send(`<!DOCTYPE html>
-<html>
+    // HTML must match exactly what ONDC registry expects:
+    // single-quoted meta attributes, no DOCTYPE
+    reply.type("text/html").send(
+`<html>
   <head>
-    <meta name="ondc-site-verification" content="${signedRequestId}" />
+    <meta name='ondc-site-verification' content='${signedRequestId}' />
   </head>
   <body>ONDC Site Verification Page</body>
 </html>`);

@@ -229,9 +229,9 @@ export const GST_STATE_CODES: Record<string, string> = {
   "23": "Madhya Pradesh",
   "24": "Gujarat",
   "25": "Daman & Diu",
-  "26": "Dadra & Nagar Haveli",
+  "26": "Dadra & Nagar Haveli & Daman & Diu",
   "27": "Maharashtra",
-  "28": "Andhra Pradesh (before bifurcation)",
+  "28": "Andhra Pradesh (old)",
   "29": "Karnataka",
   "30": "Goa",
   "31": "Lakshadweep",
@@ -244,3 +244,46 @@ export const GST_STATE_CODES: Record<string, string> = {
   "38": "Ladakh",
   "97": "Other Territory",
 };
+
+// -------------------------------------------------------------------------
+// GSTIN Checksum Validation
+// -------------------------------------------------------------------------
+
+/**
+ * Valid GST state codes for GSTIN validation (first 2 digits).
+ * Includes all active state/UT codes per CBIC.
+ */
+const VALID_GST_STATE_CODES = new Set(Object.keys(GST_STATE_CODES));
+
+/**
+ * Validate GSTIN with checksum verification.
+ * The 15th character is a check digit computed from characters 1-14
+ * using a weighted modulo-36 algorithm as per CBIC specification.
+ *
+ * @param gstin - 15-character GSTIN string
+ * @returns true if the GSTIN passes both format and checksum validation
+ */
+export function validateGstinWithChecksum(gstin: string): boolean {
+  if (!validateGstin(gstin)) return false;
+
+  // Verify state code is a real Indian state/UT
+  const stateCode = gstin.substring(0, 2);
+  if (!VALID_GST_STATE_CODES.has(stateCode)) return false;
+
+  const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  let sum = 0;
+
+  for (let i = 0; i < 14; i++) {
+    const idx = chars.indexOf(gstin[i]!);
+    if (idx === -1) return false;
+
+    let product = idx;
+    if (i % 2 !== 0) {
+      product = (idx * 2) % 36 + Math.floor((idx * 2) / 36);
+    }
+    sum += product;
+  }
+
+  const checkDigit = (36 - (sum % 36)) % 36;
+  return gstin[14] === chars[checkDigit];
+}

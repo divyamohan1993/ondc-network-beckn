@@ -20,10 +20,11 @@ import {
   validateSellerDisclosure,
   validateProductCompliance,
   validatePriceAgainstMrp,
+  validateFssaiLicense,
   type SellerDisclosure,
   type ProductCompliance,
 } from "../compliance/consumer-protection.js";
-import { validateGstin } from "../compliance/gst.js";
+import { validateGstin, validateGstinWithChecksum } from "../compliance/gst.js";
 
 // ---------------------------------------------------------------------------
 // Validation Result Types
@@ -686,12 +687,20 @@ export function validateIndianLawCompliance(
   // Check GSTIN if provided
   const gstin = (provider["gstin"] as string) ??
     getTagValue(provider, "tax_credentials", "gstin");
-  if (gstin && !validateGstin(gstin)) {
-    errors.push({
-      field: "provider.gstin",
-      message: "Invalid GSTIN format. Must be 15 characters: 2-digit state + PAN + entity + Z + check",
-      severity: "error",
-    });
+  if (gstin) {
+    if (!validateGstin(gstin)) {
+      errors.push({
+        field: "provider.gstin",
+        message: "Invalid GSTIN format. Must be 15 characters: 2-digit state + PAN + entity + Z + check",
+        severity: "error",
+      });
+    } else if (!validateGstinWithChecksum(gstin)) {
+      warnings.push({
+        field: "provider.gstin",
+        message: "GSTIN checksum verification failed. The check digit (15th character) does not match.",
+        severity: "warning",
+      });
+    }
   }
 
   // Check FSSAI license for food domains
@@ -706,12 +715,17 @@ export function validateIndianLawCompliance(
         message: `FSSAI license number is mandatory for domain ${domain} (FSSAI Act 2006, Section 31)`,
         severity: "error",
       });
-    } else if (!/^[0-9]{14}$/.test(fssaiLicense)) {
-      warnings.push({
-        field: "provider.fssai_license_no",
-        message: "FSSAI license number should be 14 digits",
-        severity: "warning",
-      });
+    } else {
+      const fssaiResult = validateFssaiLicense(fssaiLicense);
+      if (!fssaiResult.valid) {
+        for (const fssaiError of fssaiResult.errors) {
+          errors.push({
+            field: "provider.fssai_license_no",
+            message: `FSSAI license invalid: ${fssaiError}`,
+            severity: "error",
+          });
+        }
+      }
     }
   }
 

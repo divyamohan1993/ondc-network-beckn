@@ -28,3 +28,5 @@ export type { PushNotification } from "./push-notification-service.js";
 export { AddressService } from "./address-service.js";
 export type { AddressValidation } from "./address-service.js";
 export { AuthService } from "./auth-service.js";
+export { validateIfsc } from "./ifsc-service.js";
+export type { BankDetails } from "./ifsc-service.js";
