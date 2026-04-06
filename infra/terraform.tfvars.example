@@ -1,0 +1,10 @@
+# Copy to terraform.tfvars and fill in your values
+project       = "your-gcp-project-id"
+domain        = "ondc.your-domain.com"
+datagovin_key = "your-data-gov-in-api-key"
+
+# Optional overrides
+# region       = "asia-south1"
+# zone         = "asia-south1-b"
+# machine_type = "e2-standard-4"
+# disk_size    = 50

@@ -5,28 +5,32 @@ import { resolve } from "node:path";
 const ROOT = resolve(import.meta.dirname, "../..");
 
 describe("Service Health Configuration", () => {
-  describe("Docker Compose", () => {
-    it("docker-compose.yml exists", () => {
-      expect(existsSync(resolve(ROOT, "docker-compose.yml"))).toBe(true);
+  describe("Terraform Deployment", () => {
+    it("main.tf exists", () => {
+      expect(existsSync(resolve(ROOT, "infra/main.tf"))).toBe(true);
     });
 
-    it("docker-compose.yml contains all required services", () => {
-      const content = readFileSync(resolve(ROOT, "docker-compose.yml"), "utf-8");
-      const requiredServices = [
-        "postgres", "redis", "rabbitmq",
-        "registry", "gateway", "bap", "bpp", "admin",
-        "vault", "orchestrator", "health-monitor", "log-aggregator",
-        "mock-server", "simulation-engine",
-      ];
-      for (const service of requiredServices) {
-        expect(content).toContain(service);
-      }
+    it("startup.sh exists", () => {
+      expect(existsSync(resolve(ROOT, "infra/startup.sh"))).toBe(true);
     });
 
-    it("all services have health check or depends_on", () => {
-      const content = readFileSync(resolve(ROOT, "docker-compose.yml"), "utf-8");
-      // At minimum, infrastructure services should have healthcheck
-      expect(content).toContain("healthcheck");
+    it("deploy.sh exists and is executable", () => {
+      expect(existsSync(resolve(ROOT, "deploy.sh"))).toBe(true);
+    });
+
+    it("main.tf contains GCP provider and VM resource", () => {
+      const content = readFileSync(resolve(ROOT, "infra/main.tf"), "utf-8");
+      expect(content).toContain("google_compute_instance");
+      expect(content).toContain("google_compute_firewall");
+    });
+
+    it("startup.sh installs all required services", () => {
+      const content = readFileSync(resolve(ROOT, "infra/startup.sh"), "utf-8");
+      expect(content).toContain("postgresql");
+      expect(content).toContain("redis-server");
+      expect(content).toContain("rabbitmq-server");
+      expect(content).toContain("nginx");
+      expect(content).toContain("pm2");
     });
   });
 
@@ -92,21 +96,15 @@ describe("Service Health Configuration", () => {
   });
 
   describe("Nginx Configuration", () => {
-    it("nginx.conf exists", () => {
-      expect(existsSync(resolve(ROOT, "nginx/nginx.conf"))).toBe(true);
-    });
-
-    it("nginx.conf contains upstreams for all services", () => {
-      const content = readFileSync(resolve(ROOT, "nginx/nginx.conf"), "utf-8");
-      const upstreams = ["registry", "gateway", "admin"];
-      for (const upstream of upstreams) {
-        expect(content).toContain(upstream);
-      }
-    });
-
-    it("nginx.conf has rate limiting configuration", () => {
-      const content = readFileSync(resolve(ROOT, "nginx/nginx.conf"), "utf-8");
-      expect(content).toContain("limit_req");
+    it("startup.sh configures nginx with all routes", () => {
+      const content = readFileSync(resolve(ROOT, "infra/startup.sh"), "utf-8");
+      expect(content).toContain("/registry/");
+      expect(content).toContain("/gateway/");
+      expect(content).toContain("/api/bap/");
+      expect(content).toContain("/api/bpp/");
+      expect(content).toContain("/seller/");
+      expect(content).toContain("/admin/");
+      expect(content).toContain("/pitch");
     });
   });
 
@@ -144,8 +142,8 @@ describe("Service Health Configuration", () => {
   });
 
   describe("Deployment Scripts", () => {
-    it("autoconfig.sh exists", () => {
-      expect(existsSync(resolve(ROOT, "autoconfig.sh"))).toBe(true);
+    it("deploy.sh exists", () => {
+      expect(existsSync(resolve(ROOT, "deploy.sh"))).toBe(true);
     });
 
     it("turbo.json exists with correct pipeline", () => {

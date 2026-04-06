@@ -20,8 +20,7 @@
 
 <p align="center">
   <a href="https://github.com/divyamohan1993/ondc-network-beckn/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/divyamohan1993/ondc-network-beckn/ci.yml?branch=main&style=flat-square&label=CI" alt="CI"/></a>
-  <a href="https://github.com/divyamohan1993/ondc-network-beckn/actions/workflows/docker.yml"><img src="https://img.shields.io/github/actions/workflow/status/divyamohan1993/ondc-network-beckn/docker.yml?branch=main&style=flat-square&label=Docker%20Build" alt="Docker Build"/></a>
-  <img src="https://img.shields.io/badge/Beckn_Protocol-1.1.0-blue?style=flat-square" alt="Beckn 1.1.0"/>
+  <img src="https://img.shields.io/badge/Beckn_Protocol-1.2.5-blue?style=flat-square" alt="Beckn 1.2.5"/>
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="MIT License"/>
   <img src="https://img.shields.io/badge/Node.js-22_LTS-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node 22"/>
@@ -64,67 +63,55 @@ This project is complementary to the ONDC initiative. It implements the same ope
 | `simulation-engine` | Order flow generator for load testing |
 | `mock-server` | Simulated BAP/BPP responses for integration testing |
 
-Infrastructure: PostgreSQL 16, Redis 7, RabbitMQ 3.13, Nginx.
-Production monitoring: Prometheus + Grafana (via `docker-compose.prod.yml`).
+Infrastructure: PostgreSQL 16, Redis 7, RabbitMQ 3.13, nginx, PM2.
+Monitoring: Prometheus metrics on every service (`/metrics` endpoint).
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the full deep-dive.
 
 ---
 
-## Quick Start
+## Deploy
 
-### Option 1: Direct Deployment (Recommended for demo/staging)
+### Terraform (GCloud)
 
 ```bash
-# On Ubuntu 22.04+ VM (e2-standard-4 or equivalent, 4 vCPU / 16GB RAM)
+cd infra
+cp terraform.tfvars.example terraform.tfvars
+# Edit terraform.tfvars with your project, domain, and data.gov.in key
 
-# 1. Install prerequisites
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs postgresql redis-server rabbitmq-server nginx
-sudo npm install -g pnpm@10.30.1 pm2
+terraform init
+terraform apply
+```
 
-# 2. Clone and configure
+This creates an e2-standard-4 VM in asia-south1, installs everything, and starts the platform. Takes ~8 minutes. Point your domain's DNS A record to the output IP.
+
+### Shell Script (Any Ubuntu VM)
+
+```bash
 git clone https://github.com/divyamohan1993/ondc-network-beckn.git
 cd ondc-network-beckn
-./autoconfig.sh --domain your-domain.com
-
-# 3. Setup database
-sudo -u postgres createuser -s ondc_admin
-sudo -u postgres createdb ondc -O ondc_admin
-sudo -u postgres psql -d ondc -f db/init.sql
-
-# 4. Install, build, start
-pnpm install && pnpm turbo build
-pm2 start ecosystem.config.cjs
-pm2 save && pm2 startup
-
-# 5. Seed pincode data
-pnpm seed:pincodes
+./deploy.sh --domain your-domain.com --datagovin YOUR_KEY
 ```
 
-Access:
-- `https://your-domain.com/` -- Buyer storefront
-- `https://your-domain.com/seller` -- Seller dashboard
-- `https://your-domain.com/admin` -- Admin panel
-- `https://your-domain.com/pitch` -- Platform pitch
+### Access
 
-### Option 2: Docker Compose
-
-```bash
-./autoconfig.sh --domain your-domain.com
-docker compose up -d
-```
-
-### Option 3: Kubernetes
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for GKE/EKS deployment.
+| Page | Path |
+|------|------|
+| Buyer App | `https://your-domain.com/` |
+| Seller Dashboard | `https://your-domain.com/seller/` |
+| Admin Panel | `https://your-domain.com/admin/` |
+| Onboarding | `https://your-domain.com/admin/onboard` |
+| Pitch | `https://your-domain.com/pitch` |
+| Registry API | `https://your-domain.com/registry/health` |
+| Gateway API | `https://your-domain.com/gateway/health` |
 
 ### Local Development
 
 ```bash
+# Install PostgreSQL, Redis, RabbitMQ locally first
 pnpm install
-docker compose up postgres redis rabbitmq -d
-pnpm dev
+pnpm turbo build
+pm2 start ecosystem.config.cjs
 ```
 
 ---
