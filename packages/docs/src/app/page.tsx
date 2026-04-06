@@ -294,21 +294,85 @@ export default function HomePage() {
         <section className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20" aria-labelledby="architecture">
           <SectionHeading id="architecture">Architecture</SectionHeading>
           <TricolorBar />
-          <div className="mt-10 rounded-xl p-6 sm:p-8 border overflow-x-auto" style={{ backgroundColor: '#111111', borderColor: '#222' }}>
-            <pre
-              className="text-xs sm:text-sm font-mono leading-relaxed whitespace-pre"
-              style={{ color: '#d4d4d4' }}
-              role="img"
-              aria-label="Architecture diagram showing 15 packages: Registry, Gateway, BAP, BPP, Vault in the protocol layer; Buyer App, Seller App, Admin, Docs, Monitor in the application layer; and PostgreSQL, Redis, RabbitMQ, nginx as infrastructure"
-            >{`┌─────────────────────────────────────────────────────┐
-│                    15 Packages                       │
-├──────────┬──────────┬──────────┬──────────┬─────────┤
-│ Registry │ Gateway  │   BAP    │   BPP    │  Vault  │
-├──────────┼──────────┼──────────┼──────────┼─────────┤
-│ Buyer App│Seller App│  Admin   │   Docs   │ Monitor │
-├──────────┴──────────┴──────────┴──────────┴─────────┤
-│        PostgreSQL  │  Redis  │  RabbitMQ  │  nginx  │
-└─────────────────────────────────────────────────────┘`}</pre>
+          <div
+            className="mt-10 rounded-xl p-6 sm:p-8 border overflow-x-auto"
+            style={{ backgroundColor: '#111111', borderColor: '#222' }}
+            role="img"
+            aria-label="Architecture diagram showing 15 packages across 4 layers: Protocol, Application, Services, and Infrastructure"
+          >
+            {/* Layer labels + boxes */}
+            <div className="space-y-4 min-w-[600px]">
+              {/* Buyer/Seller flow arrows */}
+              <div className="flex justify-between items-center px-4 text-xs" style={{ color: '#888' }}>
+                <span>Buyer &rarr;</span>
+                <span className="font-semibold text-sm" style={{ color: '#f5f5f5' }}>15 Packages &middot; Beckn 1.2.5</span>
+                <span>&larr; Seller</span>
+              </div>
+
+              {/* Protocol Layer */}
+              <div>
+                <div className="text-[10px] uppercase tracking-widest mb-2 pl-1" style={{ color: '#FF9933' }}>Protocol Layer</div>
+                <div className="grid grid-cols-5 gap-2">
+                  {['Registry', 'Gateway', 'BAP', 'BPP', 'Vault'].map((name) => (
+                    <div key={name} className="rounded-lg border text-center py-3 text-sm font-medium" style={{ borderColor: '#FF9933', color: '#f5f5f5', backgroundColor: '#1a1a1a' }}>
+                      {name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Connection arrows */}
+              <div className="flex justify-center gap-8 text-xs" style={{ color: '#555' }}>
+                <span>&darr; Beckn Actions</span>
+                <span>&darr; Callbacks</span>
+                <span>&darr; Webhooks</span>
+              </div>
+
+              {/* Application Layer */}
+              <div>
+                <div className="text-[10px] uppercase tracking-widest mb-2 pl-1" style={{ color: '#ffffff' }}>Application Layer</div>
+                <div className="grid grid-cols-5 gap-2">
+                  {['Buyer App', 'Seller App', 'Admin', 'Docs', 'Monitor'].map((name) => (
+                    <div key={name} className="rounded-lg border text-center py-3 text-sm font-medium" style={{ borderColor: '#444', color: '#d4d4d4', backgroundColor: '#1a1a1a' }}>
+                      {name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Services Layer */}
+              <div>
+                <div className="text-[10px] uppercase tracking-widest mb-2 pl-1" style={{ color: '#ffffff' }}>Services</div>
+                <div className="grid grid-cols-5 gap-2">
+                  {['Payment', 'Notifications', 'Settlement', 'Logistics', 'Inventory'].map((name) => (
+                    <div key={name} className="rounded-lg border text-center py-2.5 text-xs" style={{ borderColor: '#333', color: '#999', backgroundColor: '#141414' }}>
+                      {name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Infrastructure Layer */}
+              <div>
+                <div className="text-[10px] uppercase tracking-widest mb-2 pl-1" style={{ color: '#138808' }}>Infrastructure</div>
+                <div className="grid grid-cols-4 gap-2">
+                  {['PostgreSQL', 'Redis', 'RabbitMQ', 'nginx'].map((name) => (
+                    <div key={name} className="rounded-lg border text-center py-3 text-sm font-medium" style={{ borderColor: '#138808', color: '#a3e6a3', backgroundColor: '#0d1f0d' }}>
+                      {name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Security badge */}
+              <div className="flex justify-center gap-4 pt-2 text-[10px] uppercase tracking-wider" style={{ color: '#666' }}>
+                <span style={{ color: '#FF9933' }}>Ed25519 + ML-DSA-65</span>
+                <span>&bull;</span>
+                <span>AES-256-GCM PII Encryption</span>
+                <span>&bull;</span>
+                <span style={{ color: '#138808' }}>DPDPA &middot; IT Act &middot; GST</span>
+              </div>
+            </div>
           </div>
         </section>
 

@@ -24,7 +24,10 @@
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178c6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"/>
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="MIT License"/>
   <img src="https://img.shields.io/badge/Node.js-22_LTS-339933?style=flat-square&logo=nodedotjs&logoColor=white" alt="Node 22"/>
+  <img src="https://img.shields.io/badge/Status-In_Development-orange?style=flat-square" alt="In Development"/>
 </p>
+
+> **Note:** This project is under active development. It is a reference implementation and research platform, not a production deployment. See [KNOWN_LIMITS.md](KNOWN_LIMITS.md) for details on what requires external credentials and organizational onboarding.
 
 ---
 
