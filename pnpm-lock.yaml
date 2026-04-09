@@ -42,8 +42,8 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       next:
         specifier: ^15.5.14
         version: 15.5.14(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -103,8 +103,8 @@ importers:
         specifier: ^16.6.1
         version: 16.6.1
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       fastify:
         specifier: ^5.8.3
         version: 5.8.4
@@ -152,8 +152,8 @@ importers:
         specifier: ^16.6.1
         version: 16.6.1
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       fastify:
         specifier: ^5.8.3
         version: 5.8.4
@@ -263,8 +263,8 @@ importers:
         specifier: ^16.6.1
         version: 16.6.1
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       fastify:
         specifier: ^5.8.3
         version: 5.8.4
@@ -306,8 +306,8 @@ importers:
         specifier: ^16.6.1
         version: 16.6.1
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       fastify:
         specifier: ^5.8.3
         version: 5.8.4
@@ -346,8 +346,8 @@ importers:
         specifier: ^16.6.1
         version: 16.6.1
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       fastify:
         specifier: ^5.8.3
         version: 5.8.4
@@ -383,8 +383,8 @@ importers:
         specifier: ^16.6.1
         version: 16.6.1
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       fastify:
         specifier: ^5.8.3
         version: 5.8.4
@@ -429,8 +429,8 @@ importers:
         specifier: ^16.6.1
         version: 16.6.1
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       fastify:
         specifier: ^5.8.3
         version: 5.8.4
@@ -469,8 +469,8 @@ importers:
         specifier: ^16.6.1
         version: 16.6.1
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       fastify:
         specifier: ^5.8.3
         version: 5.8.4
@@ -540,8 +540,8 @@ importers:
         specifier: ^1.2.1
         version: 1.2.1
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       fastify:
         specifier: ^5.8.3
         version: 5.8.4
@@ -587,8 +587,8 @@ importers:
         specifier: ^9.15.1
         version: 9.15.1
       nodemailer:
-        specifier: ^8.0.4
-        version: 8.0.4
+        specifier: ^8.0.5
+        version: 8.0.5
 
   packages/simulation-engine:
     dependencies:
@@ -602,8 +602,8 @@ importers:
         specifier: ^16.6.1
         version: 16.6.1
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       fastify:
         specifier: ^5.8.3
         version: 5.8.4
@@ -645,8 +645,8 @@ importers:
         specifier: ^16.6.1
         version: 16.6.1
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       fastify:
         specifier: ^5.8.3
         version: 5.8.4
@@ -697,8 +697,8 @@ importers:
         specifier: ^16.6.1
         version: 16.6.1
       drizzle-orm:
-        specifier: ^0.45.1
-        version: 0.45.1(@types/pg@8.16.0)(pg@8.18.0)
+        specifier: ^0.45.2
+        version: 0.45.2(@types/pg@8.16.0)(pg@8.18.0)
       pg:
         specifier: ^8.18.0
         version: 8.18.0
@@ -2510,8 +2510,8 @@ packages:
     resolution: {integrity: sha512-GViD3IgsXn7trFyBUUHyTFBpH/FsHTxYJ66qdbVggxef4UBPHRYxQaRzYLTuekYnk9i5FIEL9pbBIwMqX/Uwrg==}
     hasBin: true
 
-  drizzle-orm@0.45.1:
-    resolution: {integrity: sha512-Te0FOdKIistGNPMq2jscdqngBRfBpC8uMFVwqjf6gtTVJHIQ/dosgV/CLBU2N4ZJBsXL5savCba9b0YJskKdcA==}
+  drizzle-orm@0.45.2:
+    resolution: {integrity: sha512-kY0BSaTNYWnoDMVoyY8uxmyHjpJW1geOmBMdSSicKo9CIIWkSxMIj2rkeSR51b8KAPB7m+qysjuHme5nKP+E5Q==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
       '@cloudflare/workers-types': '>=4'
@@ -3184,8 +3184,8 @@ packages:
     resolution: {integrity: sha512-LA4ZjwlnUblHVgq0oBF3Jl/6h/Nvs5fzBLwdEF4nuxnFdsfajde4WfxtJr3CaiH+F6ewcIB/q4jQ4UzPyid+CQ==}
     hasBin: true
 
-  nodemailer@8.0.4:
-    resolution: {integrity: sha512-k+jf6N8PfQJ0Fe8ZhJlgqU5qJU44Lpvp2yvidH3vp1lPnVQMgi4yEEMPXg5eJS1gFIJTVq1NHBk7Ia9ARdSBdQ==}
+  nodemailer@8.0.5:
+    resolution: {integrity: sha512-0PF8Yb1yZuQfQbq+5/pZJrtF6WQcjTd5/S4JOHs9PGFxuTqoB/icwuB44pOdURHJbRKX1PPoJZtY7R4VUoCC8w==}
     engines: {node: '>=6.0.0'}
 
   nopt@5.0.0:
@@ -5182,7 +5182,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.45.1(@types/pg@8.16.0)(pg@8.18.0):
+  drizzle-orm@0.45.2(@types/pg@8.16.0)(pg@8.18.0):
     optionalDependencies:
       '@types/pg': 8.16.0
       pg: 8.18.0
@@ -5872,7 +5872,7 @@ snapshots:
 
   node-gyp-build@4.8.4: {}
 
-  nodemailer@8.0.4:
+  nodemailer@8.0.5:
     optional: true
 
   nopt@5.0.0:

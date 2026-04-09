@@ -38,7 +38,7 @@
   },
   "optionalDependencies": {
     "google-auth-library": "^9.15.1",
-    "nodemailer": "^8.0.4"
+    "nodemailer": "^8.0.5"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",

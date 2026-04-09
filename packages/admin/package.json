@@ -14,7 +14,7 @@
     "react-dom": "^19.1.0",
     "next-auth": "^4.24.13",
     "@ondc/shared": "workspace:*",
-    "drizzle-orm": "^0.45.1",
+    "drizzle-orm": "^0.45.2",
     "pg": "^8.18.0",
     "bcrypt": "^6.0.0",
     "recharts": "^2.15.4"
