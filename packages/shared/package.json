@@ -27,14 +27,14 @@
     "@noble/post-quantum": "^0.6.0",
     "blakejs": "^1.2.1",
     "drizzle-orm": "^0.45.1",
-    "fastify": "^5.8.3",
+    "fastify": "^5.8.5",
     "ioredis": "^5.9.3",
     "pg": "^8.18.0",
     "pino": "^10.3.1",
     "tweetnacl": "^1.0.3",
     "tweetnacl-sealedbox-js": "^1.2.0",
     "undici": "^7.24.0",
-    "uuid": "^11.1.0"
+    "uuid": "^14.0.0"
   },
   "optionalDependencies": {
     "google-auth-library": "^9.15.1",
